@@ -9,7 +9,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.0
+        value: 3.12.7
       - key: AIRKOREA_API_KEY
         sync: false
       - key: CORS_ORIGINS
