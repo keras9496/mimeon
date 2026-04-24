@@ -16,7 +16,6 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from scipy.spatial import cKDTree
 
 from app.core.config import STATIONS_DIR
 from app.models.schemas import Station, NearestStationResult
@@ -73,16 +72,18 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 class StationIndex:
     def __init__(self, df: pd.DataFrame) -> None:
         self.df = df.reset_index(drop=True)
-        self._tree = cKDTree(_latlon_to_ecef(df["lat"].to_numpy(), df["lon"].to_numpy()))
+        self._ecef = _latlon_to_ecef(df["lat"].to_numpy(), df["lon"].to_numpy())
 
     def __len__(self) -> int:
         return len(self.df)
 
     def nearest(self, lat: float, lon: float, k: int = 1) -> list[NearestStationResult]:
-        pt = _latlon_to_ecef(np.array([lat]), np.array([lon]))
+        pt = _latlon_to_ecef(np.array([lat]), np.array([lon]))[0]
         k = min(k, len(self.df))
-        _, idx = self._tree.query(pt, k=k)
-        idx = np.atleast_1d(idx).flatten()
+        diffs = self._ecef - pt
+        dist2 = (diffs * diffs).sum(axis=1)
+        idx = np.argpartition(dist2, k - 1)[:k] if k > 1 else np.array([int(dist2.argmin())])
+        idx = idx[np.argsort(dist2[idx])]
         results: list[NearestStationResult] = []
         for i in idx:
             row = self.df.iloc[int(i)]
