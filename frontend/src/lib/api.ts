@@ -1,4 +1,7 @@
-const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// 프로덕션(동일 도메인)에선 상대경로, 개발(vite dev server 5173)에선 localhost:8000
+const BASE =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? "http://localhost:8000" : "");
 
 export type AnalyzedPoint = {
   lat: number;
