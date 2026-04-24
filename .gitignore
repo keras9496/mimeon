@@ -1,0 +1,56 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Data (keep structure, ignore large files)
+data/stations/*.csv
+data/stations/*.xlsx
+data/stations/*.xls
+data/stations/*.json
+!data/stations/.gitkeep
+# 측정소 정본 JSON 은 런타임에 필요하므로 포함 (fetch_stations.py 로 재생성 가능)
+!data/stations/api_stations.json
+
+# Logs
+*.log
+logs/
+
+# Claude
+.claude/
+
+# 공공기관 배포 문서 (로컬 참고용, 저작권/용량 이슈로 커밋 제외)
+한국환경공단 에어코리아 OpenAPI 기술문서_2026.02.12/
+sample_gps/
