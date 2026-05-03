@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PlaceSearchModal, type LocationSlot } from "./components/PlaceSearchModal";
-import { RiskResultMap } from "./components/RiskResultMap";
+import { KakaoResultMap } from "./components/KakaoResultMap";
 import { analyzeRiskReport, type RiskReportResponse } from "./lib/api";
 import { RISK_COLORS, RISK_LABELS, gradeToLevel, locationLevel, withOpacity } from "./lib/riskColor";
 
@@ -460,7 +460,7 @@ function ResultView({ report, onBack }: { report: RiskReportResponse; onBack: ()
         </aside>
 
         <section>
-          <RiskResultMap locations={report.locations} />
+          <KakaoResultMap locations={report.locations} />
         </section>
       </main>
     </div>
