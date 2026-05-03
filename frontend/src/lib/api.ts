@@ -55,3 +55,64 @@ export async function health() {
   const res = await fetch(`${BASE}/api/health`);
   return res.json();
 }
+
+// ---------- 위험도 레포트 ----------
+
+export type RiskLocationInput = {
+  name: string;
+  address?: string;
+  lat: number;
+  lon: number;
+  is_indoor: boolean;
+  start_hour: number;
+  end_hour: number;
+};
+
+export type RiskLocationResult = {
+  name: string;
+  address: string | null;
+  lat: number;
+  lon: number;
+  is_indoor: boolean;
+  start_hour: number;
+  end_hour: number;
+  station_name: string;
+  station_distance_km: number;
+  matched_hours: number;
+  pm25_avg: number | null;
+  no2_avg: number | null;
+  pm25_risk_level: 1 | 2 | 3 | 4;
+  no2_risk_level: 1 | 2 | 3 | 4;
+  risk_score: number;
+  risk_grade: string;
+  infiltration_applied: boolean;
+};
+
+export type RiskReportResponse = {
+  window: { start: string; end: string; lookback_days: number };
+  locations: RiskLocationResult[];
+  summary: {
+    total_locations: number;
+    valid_locations: number;
+    total_hours_analyzed: number;
+    overall_risk_score: number;
+    overall_risk_grade: string;
+    worst_location_name: string | null;
+    worst_location_grade: string | null;
+  };
+};
+
+export async function analyzeRiskReport(
+  locations: RiskLocationInput[]
+): Promise<RiskReportResponse> {
+  const res = await fetch(`${BASE}/api/exposure/risk-report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locations }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`risk-report failed ${res.status}: ${detail}`);
+  }
+  return res.json();
+}

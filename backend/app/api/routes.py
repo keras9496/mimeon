@@ -1,16 +1,31 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.schemas import GpsPoint
 from app.services.airkorea import AirKoreaError, parse_row, station_realtime
 from app.services.exposure import analyze_exposure
+from app.services.risk_report import analyze_risk_report
 from app.services.stations import get_station_index
 
 
 class AnalyzeRequest(BaseModel):
     points: list[GpsPoint]
+
+
+class RiskLocation(BaseModel):
+    name: str
+    address: Optional[str] = None
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    is_indoor: bool = True
+    start_hour: int = Field(..., ge=0, le=23)
+    end_hour: int = Field(..., ge=0, le=23)
+
+
+class RiskReportRequest(BaseModel):
+    locations: list[RiskLocation]
 
 router = APIRouter()
 
@@ -80,6 +95,20 @@ async def exposure_analyze(req: AnalyzeRequest) -> dict:
         raise HTTPException(status_code=400, detail="한 번에 최대 500 포인트까지 처리합니다.")
     try:
         return await analyze_exposure(req.points)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except AirKoreaError as e:
+        raise HTTPException(status_code=_airkorea_http_status(e.result_code), detail=str(e))
+
+
+@router.post("/exposure/risk-report")
+async def exposure_risk_report(req: RiskReportRequest) -> dict:
+    if not req.locations:
+        raise HTTPException(status_code=400, detail="locations 가 비어있습니다.")
+    if len(req.locations) > 3:
+        raise HTTPException(status_code=400, detail="최대 3개의 생활공간까지 입력 가능합니다.")
+    try:
+        return await analyze_risk_report([l.model_dump() for l in req.locations])
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except AirKoreaError as e:

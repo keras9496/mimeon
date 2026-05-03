@@ -1,48 +1,46 @@
-import { useMemo, useRef, useState } from "react";
-import { KoreaMap } from "./components/KoreaMap";
-import { SAMPLES, type GpsPoint } from "./lib/sampleGps";
-import { analyzeExposure, type AnalyzeResponse, type AnalyzedPoint } from "./lib/api";
-import { CAI_COLORS, CAI_LABELS, type CaiGrade } from "./lib/cai";
-import { parseGpsCsv, SAMPLE_CSV } from "./lib/csvImport";
+import { useState } from "react";
+import { PlaceSearchModal, type LocationSlot } from "./components/PlaceSearchModal";
+import { RiskResultMap } from "./components/RiskResultMap";
+import { analyzeRiskReport, type RiskReportResponse } from "./lib/api";
+import { RISK_COLORS, RISK_LABELS, gradeToLevel, locationLevel, withOpacity } from "./lib/riskColor";
 
-const POLLUTANT_LABEL: Record<string, string> = {
-  pm25: "초미세먼지 (PM2.5)",
-  pm10: "미세먼지 (PM10)",
-  o3: "오존 (O3)",
-  no2: "이산화질소 (NO2)",
-  so2: "아황산가스 (SO2)",
-  co: "일산화탄소 (CO)",
-};
-
-const POLLUTANT_UNIT: Record<string, string> = {
-  pm25: "㎍/㎥",
-  pm10: "㎍/㎥",
-  o3: "ppm",
-  no2: "ppm",
-  so2: "ppm",
-  co: "ppm",
-};
+type SlotIndex = 0 | 1 | 2;
+const SLOT_NAMES = ["주 생활 공간 1", "주 생활 공간 2", "주 생활 공간 3"];
 
 export default function App() {
-  const [sampleKey, setSampleKey] = useState<keyof typeof SAMPLES>("seoul");
-  const [customPoints, setCustomPoints] = useState<GpsPoint[]>([]);
-  const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [slots, setSlots] = useState<(LocationSlot | null)[]>([null, null, null]);
+  const [openIdx, setOpenIdx] = useState<SlotIndex | null>(null);
+  const [report, setReport] = useState<RiskReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const activePoints: GpsPoint[] = useMemo(
-    () => (customPoints.length > 0 ? customPoints : SAMPLES[sampleKey].data),
-    [sampleKey, customPoints]
-  );
+  function saveSlot(idx: SlotIndex, slot: LocationSlot) {
+    const next = [...slots];
+    next[idx] = slot;
+    setSlots(next);
+    setOpenIdx(null);
+  }
 
-  async function analyze() {
+  function clearSlot(idx: SlotIndex) {
+    const next = [...slots];
+    next[idx] = null;
+    setSlots(next);
+  }
+
+  async function runAnalysis() {
+    const filled = slots
+      .map((s, i) => (s ? { ...s, name: SLOT_NAMES[i] } : null))
+      .filter((s): s is LocationSlot => s !== null);
+    if (filled.length === 0) {
+      setErr("최소 하나의 생활공간을 입력해주세요.");
+      return;
+    }
     setLoading(true);
     setErr(null);
+    setReport(null);
     try {
-      const data = await analyzeExposure(
-        activePoints.map((p) => ({ lat: p.lat, lon: p.lon, timestamp: p.timestamp }))
-      );
-      setResult(data);
+      const r = await analyzeRiskReport(filled);
+      setReport(r);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -50,331 +48,439 @@ export default function App() {
     }
   }
 
-  const mapPoints = useMemo(() => buildMapPoints(activePoints, result?.points), [activePoints, result]);
-  const summary = result?.summary;
+  function reset() {
+    setReport(null);
+    setErr(null);
+  }
+
+  if (report) {
+    return <ResultView report={report} onBack={reset} />;
+  }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", height: "100vh" }}>
-      <aside style={{ padding: 16, borderRight: "1px solid #ddd", overflow: "auto" }}>
-        <h2 style={{ marginTop: 0 }}>미먼 — 공기질 노출 분석</h2>
+    <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
+      <main style={{ maxWidth: 880, margin: "0 auto", padding: "60px 24px 80px" }}>
+        {/* 히어로 */}
+        <section style={{ textAlign: "center" }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: 4,
+              color: "#2563eb",
+              marginBottom: 12,
+            }}
+          >
+            미먼
+          </div>
+          <h1
+            style={{
+              fontSize: "clamp(28px, 5vw, 44px)",
+              fontWeight: 800,
+              margin: 0,
+              lineHeight: 1.25,
+              color: "#0f172a",
+            }}
+          >
+            공기는 뇌에 바로 영향을 준다
+          </h1>
+          <p
+            style={{
+              marginTop: 18,
+              fontSize: 15,
+              color: "#475569",
+              lineHeight: 1.7,
+              maxWidth: 560,
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
+            PM2.5와 NO₂는 치매·뇌졸중·파킨슨병 위험을 높이는 가장 강력한 대기오염 인자입니다.
+            <br />
+            내가 평일에 머무는 위치를 기준으로 지난 2달 노출 위험을 간이로 확인해보세요.
+          </p>
+        </section>
 
-        <section>
-          <h3>샘플 GPS</h3>
-          {Object.entries(SAMPLES).map(([k, v]) => (
-            <label key={k} style={{ display: "block", marginBottom: 4, fontSize: 13 }}>
-              <input
-                type="radio"
-                checked={sampleKey === k && customPoints.length === 0}
-                onChange={() => {
-                  setSampleKey(k as keyof typeof SAMPLES);
-                  setCustomPoints([]);
-                  setResult(null);
-                }}
-              />{" "}
-              {v.name} ({v.data.length}점)
-            </label>
+        {/* 안내 */}
+        <section
+          style={{
+            marginTop: 40,
+            padding: 20,
+            background: "#ffffff",
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 18 }}>내가 생활하는 위치 기준 간이 검사</h2>
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+            아래 박스에 평일에 가장 많이 머무는 장소를 1~3순위로 등록해주세요. 각 박스는 실내·실외를
+            선택할 수 있고, 실내인 경우 실내 침투율을 반영해 노출량을 보정합니다. 입력은 일부만 채워도
+            결과를 확인할 수 있습니다.
+          </p>
+        </section>
+
+        {/* 3개 박스 */}
+        <section style={{ marginTop: 28, display: "grid", gap: 14 }}>
+          {SLOT_NAMES.map((name, i) => (
+            <SlotBox
+              key={i}
+              index={i as SlotIndex}
+              name={name}
+              slot={slots[i]}
+              onClick={() => setOpenIdx(i as SlotIndex)}
+              onClear={() => clearSlot(i as SlotIndex)}
+            />
           ))}
         </section>
 
-        <section style={{ marginTop: 16 }}>
-          <h3>직접 입력</h3>
-          <CustomInput onAdd={(p) => setCustomPoints((prev) => [...prev, p])} />
-        </section>
-
-        <section style={{ marginTop: 16 }}>
-          <h3>CSV 업로드</h3>
-          <CsvUpload
-            onLoad={(pts) => {
-              setCustomPoints(pts);
-              setResult(null);
+        {/* CTA */}
+        <section style={{ marginTop: 28, textAlign: "center" }}>
+          <button
+            onClick={runAnalysis}
+            disabled={loading}
+            style={{
+              padding: "14px 40px",
+              fontSize: 16,
+              fontWeight: 700,
+              background: loading ? "#9ca3af" : "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              cursor: loading ? "default" : "pointer",
+              boxShadow: "0 4px 14px rgba(37,99,235,0.25)",
             }}
-            onAppend={(pts) => setCustomPoints((prev) => [...prev, ...pts])}
-          />
-        </section>
-
-        {customPoints.length > 0 && (
-          <div style={{ marginTop: 8, fontSize: 12 }}>
-            커스텀 {customPoints.length}개 입력됨
-            <button onClick={() => setCustomPoints([])} style={{ marginLeft: 8 }}>
-              초기화
-            </button>
-          </div>
-        )}
-
-        <section style={{ marginTop: 16 }}>
-          <button onClick={analyze} disabled={loading} style={{ width: "100%", padding: 10, fontSize: 14 }}>
-            {loading ? "분석 중..." : "노출 공기질 분석"}
+          >
+            {loading ? "분석 중... (10~30초)" : "지난 2달 미먼 위험도 검사하기"}
           </button>
-          {err && <p style={{ color: "#d62728", fontSize: 12 }}>{err}</p>}
+          {err && (
+            <div style={{ marginTop: 12, color: "#dc2626", fontSize: 13 }}>{err}</div>
+          )}
         </section>
 
-        {summary && (
-          <section style={{ marginTop: 16 }}>
-            <h3>요약</h3>
-            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-              <div>
-                측정 지점: <b>{summary.total_points}개</b> (유효 {summary.valid_points}개)
-              </div>
-              <div>
-                총 추정 체류시간: <b>{fmtMinutes(summary.total_duration_min)}</b>
-              </div>
-              <div>
-                시간가중 평균 CAI:{" "}
-                <b style={{ color: khaiColor(summary.weighted_avg_khai) }}>
-                  {summary.weighted_avg_khai?.toFixed(1) ?? "-"}
-                </b>
-              </div>
-              <div>
-                최고 CAI: <b>{summary.max_khai ?? "-"}</b>
-                {summary.max_khai_point && (
-                  <span style={{ color: "#666", marginLeft: 4, fontSize: 11 }}>
-                    @ {summary.max_khai_point.timestamp} ({summary.max_khai_point.station_name})
-                  </span>
-                )}
-              </div>
-              {summary.dominant_pollutant && (
-                <div>
-                  주 오염물질: <b>{POLLUTANT_LABEL[summary.dominant_pollutant] ?? summary.dominant_pollutant}</b>
-                </div>
-              )}
-            </div>
-
-            <h4 style={{ marginTop: 12 }}>등급별 체류시간</h4>
-            <div style={{ fontSize: 13 }}>
-              {([1, 2, 3, 4] as CaiGrade[]).map((g) => {
-                const mins = summary.grade_minutes[String(g)] ?? 0;
-                const pct = summary.total_duration_min > 0 ? (mins / summary.total_duration_min) * 100 : 0;
-                return (
-                  <div key={g} style={{ marginBottom: 4 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 10, height: 10, background: CAI_COLORS[g], display: "inline-block" }} />
-                      <span style={{ minWidth: 60 }}>{CAI_LABELS[g]}</span>
-                      <span style={{ color: "#666" }}>
-                        {fmtMinutes(mins)} ({pct.toFixed(0)}%)
-                      </span>
-                    </div>
-                    <div style={{ background: "#eee", height: 4, borderRadius: 2, marginTop: 2 }}>
-                      <div style={{ width: `${pct}%`, background: CAI_COLORS[g], height: "100%", borderRadius: 2 }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <h4 style={{ marginTop: 12 }}>오염물질별 가중 평균</h4>
-            <div style={{ fontSize: 12 }}>
-              {Object.entries(summary.pollutant_avg).map(([k, v]) =>
-                v == null ? null : (
-                  <div key={k}>
-                    {POLLUTANT_LABEL[k] ?? k}:{" "}
-                    <b>
-                      {v.toFixed(k === "pm10" || k === "pm25" ? 1 : 4)} {POLLUTANT_UNIT[k]}
-                    </b>
-                  </div>
-                )
-              )}
-            </div>
-          </section>
-        )}
-
-        <section style={{ marginTop: 16, fontSize: 11, color: "#666" }}>
-          <div>데이터: 에어코리아 (한국환경공단)</div>
-          <div>AQI 기준: 한국 CAI (통합대기환경지수)</div>
-          {result?.data_term && <div>조회 범위: {result.data_term}</div>}
-        </section>
-      </aside>
-
-      <main>
-        <KoreaMap points={mapPoints} />
+        <footer
+          style={{
+            marginTop: 60,
+            paddingTop: 20,
+            borderTop: "1px solid #e5e7eb",
+            fontSize: 11,
+            color: "#9ca3af",
+            textAlign: "center",
+          }}
+        >
+          데이터: 에어코리아 (한국환경공단) · 위험도 모델: Khreis 2025 (Lancet Planet Health) · 실내
+          침투계수: K-IOP·Choi&Kang 2017
+        </footer>
       </main>
+
+      <PlaceSearchModal
+        open={openIdx !== null}
+        slotName={openIdx !== null ? SLOT_NAMES[openIdx] : ""}
+        initial={openIdx !== null ? slots[openIdx] : null}
+        onClose={() => setOpenIdx(null)}
+        onSave={(slot) => openIdx !== null && saveSlot(openIdx, slot)}
+      />
     </div>
   );
 }
 
-function CustomInput({ onAdd }: { onAdd: (p: GpsPoint) => void }) {
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
-  const [ts, setTs] = useState("");
+function SlotBox({
+  index,
+  name,
+  slot,
+  onClick,
+  onClear,
+}: {
+  index: number;
+  name: string;
+  slot: LocationSlot | null;
+  onClick: () => void;
+  onClear: () => void;
+}) {
+  const filled = slot !== null;
+  const indoorBadge = slot?.is_indoor ?? null;
+
   return (
-    <div style={{ display: "grid", gap: 4 }}>
-      <input placeholder="위도 (37.5)" value={lat} onChange={(e) => setLat(e.target.value)} />
-      <input placeholder="경도 (127.0)" value={lon} onChange={(e) => setLon(e.target.value)} />
-      <input placeholder="시각 (2026-04-20T09:00:00)" value={ts} onChange={(e) => setTs(e.target.value)} />
-      <button
-        onClick={() => {
-          const la = parseFloat(lat);
-          const lo = parseFloat(lon);
-          if (isNaN(la) || isNaN(lo)) return;
-          onAdd({ lat: la, lon: lo, timestamp: ts || new Date().toISOString() });
-          setLat("");
-          setLon("");
-          setTs("");
+    <div style={{ display: "flex", alignItems: "stretch", gap: 12 }}>
+      {/* 왼쪽 실내/실외 라벨 */}
+      <div
+        style={{
+          width: 64,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 12,
+          fontWeight: 700,
+          color: "#6b7280",
+          background: "#f3f4f6",
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
         }}
       >
-        추가
+        {indoorBadge === null ? (
+          <div style={{ textAlign: "center", lineHeight: 1.3 }}>
+            실내
+            <br />/ 실외
+          </div>
+        ) : indoorBadge ? (
+          <div style={{ color: "#2563eb" }}>실내</div>
+        ) : (
+          <div style={{ color: "#16a34a" }}>실외</div>
+        )}
+      </div>
+
+      {/* 박스 본체 */}
+      <button
+        onClick={onClick}
+        style={{
+          flex: 1,
+          textAlign: "left",
+          padding: 18,
+          background: filled ? "#eff6ff" : "#ffffff",
+          border: filled ? "2px solid #2563eb" : "1px dashed #cbd5e1",
+          borderRadius: 10,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{name}</div>
+          {filled ? (
+            <div style={{ marginTop: 4, fontSize: 13, color: "#1f2937" }}>
+              <div
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {slot.address}
+              </div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                평일 {String(slot.start_hour).padStart(2, "0")}:00–
+                {String(slot.end_hour).padStart(2, "0")}:00
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
+              클릭하여 위치와 거주 시간을 입력하세요
+            </div>
+          )}
+        </div>
+        {filled && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            style={{
+              padding: "4px 10px",
+              fontSize: 11,
+              background: "#fff",
+              border: "1px solid #cbd5e1",
+              borderRadius: 6,
+              color: "#64748b",
+            }}
+          >
+            지우기
+          </span>
+        )}
       </button>
     </div>
   );
 }
 
-function CsvUpload({
-  onLoad,
-  onAppend,
-}: {
-  onLoad: (points: GpsPoint[]) => void;
-  onAppend: (points: GpsPoint[]) => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [info, setInfo] = useState<string | null>(null);
-  const [errs, setErrs] = useState<string[]>([]);
-  const [showHelp, setShowHelp] = useState(false);
-  const [mode, setMode] = useState<"replace" | "append">("replace");
-
-  async function handleFile(f: File) {
-    setErrs([]);
-    setInfo(null);
-    try {
-      const text = await f.text();
-      const { points, errors, skipped } = parseGpsCsv(text);
-      if (points.length === 0) {
-        setErrs(errors.length > 0 ? errors : ["유효한 행이 없습니다."]);
-        return;
-      }
-      (mode === "replace" ? onLoad : onAppend)(points);
-      setInfo(
-        `${f.name}: ${points.length}개 로드됨${skipped > 0 ? ` (${skipped}개 스킵)` : ""}`
-      );
-      if (errors.length > 0) setErrs(errors.slice(0, 5));
-    } catch (e) {
-      setErrs([(e as Error).message]);
-    }
-  }
-
-  function downloadSample() {
-    const blob = new Blob([SAMPLE_CSV], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "gps_sample.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+function ResultView({ report, onBack }: { report: RiskReportResponse; onBack: () => void }) {
+  const overallLevel = gradeToLevel(report.summary.overall_risk_grade);
+  const overallColor = RISK_COLORS[overallLevel];
 
   return (
-    <div style={{ display: "grid", gap: 6 }}>
-      <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
-        <label>
-          <input
-            type="radio"
-            checked={mode === "replace"}
-            onChange={() => setMode("replace")}
-          />{" "}
-          교체
-        </label>
-        <label>
-          <input
-            type="radio"
-            checked={mode === "append"}
-            onChange={() => setMode("append")}
-          />{" "}
-          추가
-        </label>
-      </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv,text/csv"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-          if (fileRef.current) fileRef.current.value = "";
+    <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
+      <header
+        style={{
+          padding: "16px 24px",
+          background: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
         }}
-        style={{ fontSize: 12 }}
-      />
-      <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={downloadSample} style={{ fontSize: 12, flex: 1 }}>
-          샘플 CSV 다운로드
-        </button>
-        <button onClick={() => setShowHelp((v) => !v)} style={{ fontSize: 12 }}>
-          {showHelp ? "접기" : "형식 보기"}
-        </button>
-      </div>
-      {info && <div style={{ fontSize: 12, color: "#2ca02c" }}>{info}</div>}
-      {errs.length > 0 && (
-        <div style={{ fontSize: 11, color: "#d62728" }}>
-          {errs.map((e, i) => (
-            <div key={i}>• {e}</div>
-          ))}
-        </div>
-      )}
-      {showHelp && (
-        <div
+      >
+        <button
+          onClick={onBack}
           style={{
-            fontSize: 11,
-            background: "#f7f7f7",
-            padding: 8,
-            borderRadius: 4,
-            lineHeight: 1.5,
+            padding: "6px 14px",
+            background: "#fff",
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontSize: 13,
           }}
         >
-          <div>
-            <b>필수 컬럼:</b> <code>lat</code>, <code>lon</code>, <code>timestamp</code>
-          </div>
-          <div>
-            <b>선택 컬럼:</b> <code>label</code>
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <b>timestamp 형식:</b> <code>2026-04-20T09:00:00</code> 또는{" "}
-            <code>2026-04-20 09:00</code>
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <b>별칭:</b> latitude/위도, longitude/경도, datetime/시각/일시, name/장소
-          </div>
-          <pre
-            style={{
-              marginTop: 6,
-              background: "#fff",
-              padding: 6,
-              borderRadius: 4,
-              overflowX: "auto",
-              fontSize: 10,
-            }}
-          >
-            {SAMPLE_CSV}
-          </pre>
-        </div>
-      )}
+          ← 다시 입력
+        </button>
+        <div style={{ fontWeight: 700 }}>미먼 위험도 검사 결과</div>
+      </header>
+
+      <main
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 420px) 1fr",
+          height: "calc(100vh - 65px)",
+        }}
+      >
+        <aside
+          style={{
+            padding: 24,
+            background: "#fff",
+            borderRight: "1px solid #e5e7eb",
+            overflow: "auto",
+          }}
+        >
+          {/* 종합 위험도 */}
+          <section>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>종합 위험도</div>
+            <div
+              style={{
+                marginTop: 8,
+                padding: 18,
+                borderRadius: 10,
+                background: withOpacity(overallColor, 0.5),
+                color: "#0f172a",
+              }}
+            >
+              <div style={{ fontSize: 30, fontWeight: 800 }}>
+                {report.summary.overall_risk_grade}
+              </div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#1f2937" }}>
+                지난 {report.window.lookback_days}일 평일 체류시간 기준 PM2.5·NO₂ 통합 노출
+              </div>
+            </div>
+            {report.summary.worst_location_name && (
+              <div style={{ marginTop: 10, fontSize: 13, color: "#374151" }}>
+                가장 위험한 위치: <b>{report.summary.worst_location_name}</b> (
+                {report.summary.worst_location_grade})
+              </div>
+            )}
+          </section>
+
+          {/* 위치별 카드 */}
+          <section style={{ marginTop: 24 }}>
+            <h3 style={{ fontSize: 14, marginBottom: 10 }}>위치별 위험도</h3>
+            {report.locations.map((loc, i) => {
+              const lvl = locationLevel(loc.pm25_risk_level, loc.no2_risk_level);
+              const c = RISK_COLORS[lvl];
+              return (
+                <div
+                  key={i}
+                  style={{
+                    marginBottom: 10,
+                    padding: 14,
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{loc.name}</div>
+                    <span
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 4,
+                        background: withOpacity(c, 0.5),
+                        color: "#0f172a",
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {loc.risk_grade}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                    {loc.address}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 6,
+                      fontSize: 12,
+                    }}
+                  >
+                    <RiskBadge label="PM2.5" level={loc.pm25_risk_level} />
+                    <RiskBadge label="NO₂" level={loc.no2_risk_level} />
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#9ca3af" }}>
+                    {loc.is_indoor ? "실내 · 침투계수 적용" : "실외"} · 평일{" "}
+                    {String(loc.start_hour).padStart(2, "0")}–
+                    {String(loc.end_hour).padStart(2, "0")}시 ·{" "}
+                    {loc.station_name} 측정소 ({loc.station_distance_km}km)
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          {/* 범례 */}
+          <section style={{ marginTop: 20 }}>
+            <h3 style={{ fontSize: 14, marginBottom: 8 }}>색상 범례</h3>
+            <div style={{ display: "grid", gap: 4 }}>
+              {([1, 2, 3, 4] as const).map((lvl) => (
+                <div key={lvl} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    style={{
+                      width: 20,
+                      height: 14,
+                      background: withOpacity(RISK_COLORS[lvl], 0.5),
+                      border: `1px solid ${RISK_COLORS[lvl]}`,
+                      borderRadius: 3,
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: "#374151" }}>
+                    {RISK_LABELS[lvl]}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 11, color: "#9ca3af", lineHeight: 1.5 }}>
+              지도에서 각 위치는 50% 투명도의 색 박스로 표시됩니다. 파란색 계열은 안전, 붉은색 계열은
+              주의가 필요한 노출 수준을 의미합니다.
+            </div>
+          </section>
+        </aside>
+
+        <section>
+          <RiskResultMap locations={report.locations} />
+        </section>
+      </main>
     </div>
   );
 }
 
-function buildMapPoints(
-  activePoints: GpsPoint[],
-  enriched?: AnalyzedPoint[]
-): Array<GpsPoint & { khai?: number | null; stationName?: string }> {
-  if (!enriched) return activePoints;
-  return enriched.map((e, i) => ({
-    lat: e.lat,
-    lon: e.lon,
-    timestamp: e.timestamp,
-    label: activePoints[i]?.label,
-    khai: e.matched?.khai ?? null,
-    stationName: e.station_name,
-  }));
-}
-
-function fmtMinutes(m: number): string {
-  if (!m && m !== 0) return "-";
-  const h = Math.floor(m / 60);
-  const mm = Math.round(m % 60);
-  if (h === 0) return `${mm}분`;
-  return mm === 0 ? `${h}시간` : `${h}시간 ${mm}분`;
-}
-
-function khaiColor(k: number | null | undefined): string {
-  if (k == null) return "#666";
-  if (k <= 50) return CAI_COLORS[1];
-  if (k <= 100) return CAI_COLORS[2];
-  if (k <= 250) return CAI_COLORS[3];
-  return CAI_COLORS[4];
+function RiskBadge({ label, level }: { label: string; level: 1 | 2 | 3 | 4 }) {
+  const c = RISK_COLORS[level];
+  return (
+    <div
+      style={{
+        padding: "6px 8px",
+        borderRadius: 4,
+        background: withOpacity(c, 0.5),
+        color: "#0f172a",
+        textAlign: "center",
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 700 }}>{RISK_LABELS[level]}</div>
+    </div>
+  );
 }

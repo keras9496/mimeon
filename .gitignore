@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 *.key
+kakao/
+frontend/.env
+frontend/.env.local
 
 # Python
 __pycache__/

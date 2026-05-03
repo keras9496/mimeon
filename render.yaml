@@ -13,3 +13,5 @@ services:
         sync: false
       - key: CORS_ORIGINS
         value: https://mimeon.onrender.com
+      - key: VITE_KAKAO_MAP_KEY
+        sync: false
