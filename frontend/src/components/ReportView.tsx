@@ -75,6 +75,9 @@ export function ReportView({ report, onBack }: Props) {
 
   const validLocations = report.locations.filter((l) => l.matched_hours > 0);
   const worstName = report.summary.worst_location_name;
+  const worstLoc = worstName ? report.locations.find((l) => l.name === worstName) ?? null : null;
+  const worstDisplay = worstLoc?.address || worstLoc?.name || worstName || "";
+  const worstRisk = worstLoc ? computeCumulativeBrainRisk(worstLoc) : null;
 
   return (
     <div className="mimeon-report-root">
@@ -125,10 +128,18 @@ export function ReportView({ report, onBack }: Props) {
               </div>
             </div>
             <div className="mr-verdict-summary">
-              {worstName ? (
+              {worstLoc && worstRisk ? (
                 <>
-                  가장 위험한 공간은 <strong>{worstName}</strong>로, 뇌 건강에 적지 않은 위험을 줄
-                  수 있는 수준입니다.
+                  가장 위험한 공간은 <strong>{worstDisplay}</strong>. 이곳의 PM2.5·NO₂ 노출 수준은
+                  치매 +{worstRisk.dementia.toFixed(1)}%, 뇌졸중 +{worstRisk.stroke.toFixed(1)}%,
+                  파킨슨병 +{worstRisk.parkinson.toFixed(1)}% — 누적 약{" "}
+                  <strong>+{worstRisk.total.toFixed(1)}%</strong>의 뇌건강 위험을 더할 수 있는
+                  수준입니다.
+                </>
+              ) : worstLoc ? (
+                <>
+                  가장 위험한 공간은 <strong>{worstDisplay}</strong>입니다. 측정값이 부족해 누적
+                  위험을 산출하지 못했습니다.
                 </>
               ) : (
                 <>유효한 매칭 데이터가 부족합니다. 위치·시간대를 다시 확인해주세요.</>
@@ -457,6 +468,34 @@ function ExposureRows({ loc, index }: { loc: RiskLocationResult; index: number }
       </div>
     </>
   );
+}
+
+// 누적 뇌건강 위험 추정 — 환경부 24h "나쁨" 임계 비율 × 질병별 dose-response 가중치.
+// 가중치 출처: Khreis 2025 메타분석 기반 보고서 03 IMPACT 셀.
+const PM25_THRESHOLD = 35; // ㎍/㎥ (24h 나쁨)
+const NO2_THRESHOLD = 0.06; // ppm (24h 나쁨)
+const W_DEMENTIA = 17;
+const W_STROKE = 13;
+const W_PARKINSON = 11;
+
+function computeCumulativeBrainRisk(loc: RiskLocationResult): {
+  dementia: number;
+  stroke: number;
+  parkinson: number;
+  total: number;
+} | null {
+  if (loc.pm25_avg == null && loc.no2_avg == null) return null;
+  const pm25 = Math.max(0, loc.pm25_avg ?? 0);
+  const no2 = Math.max(0, loc.no2_avg ?? 0);
+  const dementia = (pm25 / PM25_THRESHOLD) * W_DEMENTIA;
+  const stroke = (pm25 / PM25_THRESHOLD) * W_STROKE;
+  const parkinson = (no2 / NO2_THRESHOLD) * W_PARKINSON;
+  return {
+    dementia,
+    stroke,
+    parkinson,
+    total: dementia + stroke + parkinson,
+  };
 }
 
 function riskColorVar(level: RiskLevel): string {

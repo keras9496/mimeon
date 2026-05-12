@@ -249,9 +249,9 @@
 .mr-verdict .mr-verdict-summary {
   text-align: right;
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--ink-soft);
-  max-width: 280px;
+  max-width: 360px;
   line-height: 1.6;
 }
 .mr-verdict .mr-verdict-summary strong {
