@@ -211,6 +211,8 @@ def _analyze_one_location(
         # 횟수는 백엔드 내부 계산용. 프론트에는 이 값을 직접 노출하지 않고 등급/색상만 사용.
         "_pm25_high_count": pm25_high,
         "_no2_high_count": no2_high,
+        "pm25_ratio_pct": round(pm25_ratio_pct, 1),
+        "no2_ratio_pct": round(no2_ratio_pct, 1),
         "pm25_risk_level": _level_from_ratio(pm25_ratio_pct),
         "no2_risk_level": _level_from_ratio(no2_ratio_pct),
         "risk_score": round(weighted_ratio, 1),

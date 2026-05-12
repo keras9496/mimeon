@@ -81,6 +81,8 @@ export type RiskLocationResult = {
   matched_hours: number;
   pm25_avg: number | null;
   no2_avg: number | null;
+  pm25_ratio_pct: number;
+  no2_ratio_pct: number;
   pm25_risk_level: 1 | 2 | 3 | 4;
   no2_risk_level: 1 | 2 | 3 | 4;
   risk_score: number;
