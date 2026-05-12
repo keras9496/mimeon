@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PlaceSearchModal, type LocationSlot } from "./components/PlaceSearchModal";
 import { ReportView } from "./components/ReportView";
+import { HourDial, type DialSlot } from "./components/HourDial";
+import { hoursSet, SLOT_COLORS } from "./lib/hours";
 import { analyzeRiskReport, type RiskReportResponse } from "./lib/api";
 
 type SlotIndex = 0 | 1 | 2;
@@ -52,129 +54,221 @@ export default function App() {
     setErr(null);
   }
 
+  const dialSlots: DialSlot[] = slots.map((s) =>
+    s ? { start_hour: s.start_hour, end_hour: s.end_hour } : null
+  );
+
+  const occupiedByOther = useMemo(() => {
+    const map: Set<number>[] = [new Set(), new Set(), new Set()];
+    slots.forEach((s, i) => {
+      if (!s) return;
+      hoursSet(s.start_hour, s.end_hour).forEach((h) => {
+        for (let j = 0; j < 3; j++) {
+          if (j !== i) map[j].add(h);
+        }
+      });
+    });
+    return map;
+  }, [slots]);
+
   if (report) {
     return <ReportView report={report} onBack={reset} />;
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb" }}>
-      <main style={{ maxWidth: 880, margin: "0 auto", padding: "60px 24px 80px" }}>
-        {/* 히어로 */}
-        <section style={{ textAlign: "center" }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: 4,
-              color: "#2563eb",
-              marginBottom: 12,
-            }}
-          >
-            미먼
-          </div>
-          <h1
-            style={{
-              fontSize: "clamp(28px, 5vw, 44px)",
-              fontWeight: 800,
-              margin: 0,
-              lineHeight: 1.25,
-              color: "#0f172a",
-            }}
-          >
-            공기는 뇌에 바로 영향을 준다
-          </h1>
-          <p
-            style={{
-              marginTop: 18,
-              fontSize: 15,
-              color: "#475569",
-              lineHeight: 1.7,
-              maxWidth: 560,
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
-          >
-            PM2.5와 NO₂는 치매·뇌졸중·파킨슨병 위험을 높이는 가장 강력한 대기오염 인자입니다.
-            <br />
-            내가 평일에 머무는 위치를 기준으로 지난 2달 노출 위험을 간이로 확인해보세요.
-          </p>
-        </section>
+    <div style={{ minHeight: "100vh", background: "var(--paper)" }}>
+      <main
+        style={{
+          maxWidth: 860,
+          margin: "0 auto",
+          padding: "64px 32px 96px",
+        }}
+      >
+        {/* Eyebrow */}
+        <div
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--accent)",
+            marginBottom: 18,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          대기 노출 기반 뇌건강 위험도 검사
+          <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+        </div>
 
-        {/* 안내 */}
+        {/* 큰 미먼 타이틀 */}
+        <h1
+          style={{
+            fontFamily: "var(--serif-kr)",
+            fontWeight: 900,
+            fontSize: "clamp(96px, 18vw, 200px)",
+            lineHeight: 0.9,
+            letterSpacing: "-0.06em",
+            margin: 0,
+            color: "var(--ink)",
+          }}
+        >
+          미먼
+          <span
+            style={{
+              fontFamily: "var(--serif-display)",
+              fontStyle: "italic",
+              fontWeight: 300,
+              fontSize: "0.32em",
+              color: "var(--ink-mute)",
+              marginLeft: "0.25em",
+              letterSpacing: "-0.02em",
+              verticalAlign: "0.55em",
+            }}
+          >
+            MiMeon
+          </span>
+        </h1>
+
+        <p
+          style={{
+            fontFamily: "var(--serif-kr)",
+            fontWeight: 300,
+            fontSize: "clamp(22px, 3vw, 30px)",
+            lineHeight: 1.35,
+            color: "var(--ink-soft)",
+            margin: "8px 0 18px",
+            maxWidth: 620,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          공기는 <em style={{ fontFamily: "var(--serif-display)", color: "var(--accent)", fontWeight: 400 }}>뇌</em>에<br />
+          바로 영향을 줍니다.
+        </p>
+
+        <p
+          style={{
+            fontFamily: "var(--sans)",
+            fontSize: 15,
+            color: "var(--ink-soft)",
+            lineHeight: 1.7,
+            maxWidth: 600,
+            margin: 0,
+          }}
+        >
+          평일에 가장 많이 머무는 1~3 곳의 위치와 시간을 입력하면, 지난 60일 동안 그 공간에서의
+          PM2.5·NO₂ 노출이 뇌건강 위험에 어떤 영향을 주었는지 보고서로 정리해드립니다.
+        </p>
+
+        {/* 입력 영역 — 다이얼 + 슬롯 */}
         <section
           style={{
-            marginTop: 40,
-            padding: 20,
-            background: "#ffffff",
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
+            marginTop: 56,
+            display: "grid",
+            gridTemplateColumns: "minmax(240px, 280px) 1fr",
+            gap: 40,
+            alignItems: "start",
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18 }}>내가 생활하는 위치 기준 간이 검사</h2>
-          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
-            아래 박스에 평일에 가장 많이 머무는 장소를 1~3순위로 등록해주세요. 각 박스는 실내·실외를
-            선택할 수 있고, 실내인 경우 실내 침투율을 반영해 노출량을 보정합니다. 입력은 일부만 채워도
-            결과를 확인할 수 있습니다.
-          </p>
-        </section>
-
-        {/* 3개 박스 */}
-        <section style={{ marginTop: 28, display: "grid", gap: 14 }}>
-          {SLOT_NAMES.map((name, i) => (
-            <SlotBox
-              key={i}
-              index={i as SlotIndex}
-              name={name}
-              slot={slots[i]}
-              onClick={() => setOpenIdx(i as SlotIndex)}
-              onClear={() => clearSlot(i as SlotIndex)}
-            />
-          ))}
-        </section>
-
-        {/* CTA */}
-        <section style={{ marginTop: 28, textAlign: "center" }}>
-          <button
-            onClick={runAnalysis}
-            disabled={loading}
+          {/* 좌측: 다이얼 */}
+          <div
             style={{
-              padding: "14px 40px",
-              fontSize: 16,
-              fontWeight: 700,
-              background: loading ? "#9ca3af" : "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              cursor: loading ? "default" : "pointer",
-              boxShadow: "0 4px 14px rgba(37,99,235,0.25)",
+              position: "sticky",
+              top: 32,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 16,
             }}
           >
-            {loading ? "분석 중... (10~30초)" : "지난 2달 미먼 위험도 검사하기"}
-          </button>
-          {err && (
-            <div style={{ marginTop: 12, color: "#dc2626", fontSize: 13 }}>{err}</div>
-          )}
+            <HourDial slots={dialSlots} size={260} />
+            <DialLegend slots={slots} />
+          </div>
+
+          {/* 우측: 슬롯 카드 */}
+          <div style={{ display: "grid", gap: 14 }}>
+            {SLOT_NAMES.map((name, i) => (
+              <SlotCard
+                key={i}
+                index={i as SlotIndex}
+                name={name}
+                slot={slots[i]}
+                onClick={() => setOpenIdx(i as SlotIndex)}
+                onClear={() => clearSlot(i as SlotIndex)}
+              />
+            ))}
+
+            {/* CTA */}
+            <button
+              onClick={runAnalysis}
+              disabled={loading}
+              style={{
+                marginTop: 16,
+                padding: "20px 28px",
+                fontFamily: "var(--sans)",
+                fontSize: 15,
+                fontWeight: 600,
+                letterSpacing: "0.02em",
+                background: loading ? "var(--ink-mute)" : "var(--ink)",
+                color: "var(--paper)",
+                border: "none",
+                borderRadius: 2,
+                cursor: loading ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <span>{loading ? "분석 중... (10~30초)" : "지난 2달 미먼 위험도 검사하기"}</span>
+              <span style={{ fontFamily: "var(--serif-display)", fontStyle: "italic", fontSize: 18, opacity: 0.7 }}>
+                →
+              </span>
+            </button>
+            {err && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--r-extreme)",
+                  fontFamily: "var(--sans)",
+                }}
+              >
+                {err}
+              </div>
+            )}
+          </div>
         </section>
 
+        {/* 푸터 */}
         <footer
           style={{
-            marginTop: 60,
-            paddingTop: 20,
-            borderTop: "1px solid #e5e7eb",
-            fontSize: 11,
-            color: "#9ca3af",
-            textAlign: "center",
+            marginTop: 80,
+            paddingTop: 24,
+            borderTop: "1px solid var(--rule)",
+            fontFamily: "var(--mono)",
+            fontSize: 10.5,
+            color: "var(--ink-mute)",
+            lineHeight: 1.7,
+            letterSpacing: "0.05em",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px 24px",
           }}
         >
-          데이터: 에어코리아 (한국환경공단) · 위험도 모델: Khreis 2025 (Lancet Planet Health) · 실내
-          침투계수: K-IOP·Choi&Kang 2017
+          <span>데이터 · 에어코리아 (한국환경공단)</span>
+          <span>위험도 모델 · Khreis 2025, Lancet Planetary Health</span>
+          <span>침투계수 · F<sub>inf</sub> 0.90</span>
         </footer>
       </main>
 
       <PlaceSearchModal
         open={openIdx !== null}
         slotName={openIdx !== null ? SLOT_NAMES[openIdx] : ""}
+        slotIndex={openIdx ?? 0}
         initial={openIdx !== null ? slots[openIdx] : null}
+        occupiedHours={openIdx !== null ? occupiedByOther[openIdx] : new Set()}
+        allDialSlots={dialSlots}
         onClose={() => setOpenIdx(null)}
         onSave={(slot) => openIdx !== null && saveSlot(openIdx, slot)}
       />
@@ -182,7 +276,7 @@ export default function App() {
   );
 }
 
-function SlotBox({
+function SlotCard({
   index,
   name,
   slot,
@@ -196,99 +290,189 @@ function SlotBox({
   onClear: () => void;
 }) {
   const filled = slot !== null;
-  const indoorBadge = slot?.is_indoor ?? null;
+  const slotColor = SLOT_COLORS[index] as string;
 
   return (
-    <div style={{ display: "flex", alignItems: "stretch", gap: 12 }}>
-      {/* 왼쪽 실내/실외 라벨 */}
-      <div
-        style={{
-          width: 64,
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          fontWeight: 700,
-          color: "#6b7280",
-          background: "#f3f4f6",
-          border: "1px solid #e5e7eb",
-          borderRadius: 10,
-        }}
-      >
-        {indoorBadge === null ? (
-          <div style={{ textAlign: "center", lineHeight: 1.3 }}>
-            실내
-            <br />/ 실외
-          </div>
-        ) : indoorBadge ? (
-          <div style={{ color: "#2563eb" }}>실내</div>
-        ) : (
-          <div style={{ color: "#16a34a" }}>실외</div>
-        )}
-      </div>
-
-      {/* 박스 본체 */}
+    <article
+      style={{
+        position: "relative",
+        background: "#fff",
+        border: filled ? "1px solid var(--rule)" : "1px dashed var(--rule)",
+        borderRadius: 2,
+        overflow: "hidden",
+      }}
+    >
       <button
         onClick={onClick}
         style={{
-          flex: 1,
+          width: "100%",
           textAlign: "left",
-          padding: 18,
-          background: filled ? "#eff6ff" : "#ffffff",
-          border: filled ? "2px solid #2563eb" : "1px dashed #cbd5e1",
-          borderRadius: 10,
+          padding: "20px 24px 20px 28px",
+          background: "transparent",
+          border: "none",
           cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
+          fontFamily: "inherit",
+          color: "var(--ink)",
         }}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{name}</div>
-          {filled ? (
-            <div style={{ marginTop: 4, fontSize: 13, color: "#1f2937" }}>
-              <div
-                style={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {slot.address}
-              </div>
-              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-                평일 {String(slot.start_hour).padStart(2, "0")}:00–
-                {String(slot.end_hour).padStart(2, "0")}:00
-              </div>
-            </div>
-          ) : (
-            <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8" }}>
-              클릭하여 위치와 거주 시간을 입력하세요
-            </div>
-          )}
-        </div>
-        {filled && (
+        {/* 좌측 색 띠 */}
+        <span
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            background: filled ? slotColor : "var(--rule)",
+          }}
+        />
+
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
           <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
             style={{
-              padding: "4px 10px",
-              fontSize: 11,
-              background: "#fff",
-              border: "1px solid #cbd5e1",
-              borderRadius: 6,
-              color: "#64748b",
+              fontFamily: "var(--serif-display)",
+              fontStyle: "italic",
+              fontWeight: 300,
+              fontSize: 28,
+              color: "var(--ink-mute)",
+              letterSpacing: "-0.04em",
+              lineHeight: 1,
             }}
           >
-            지우기
+            {String(index + 1).padStart(2, "0")}
           </span>
+          <span
+            style={{
+              fontFamily: "var(--serif-kr)",
+              fontWeight: 700,
+              fontSize: 17,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {name}
+          </span>
+          {filled && (
+            <span
+              style={{
+                marginLeft: "auto",
+                padding: "3px 10px",
+                fontFamily: "var(--sans)",
+                fontSize: 11,
+                fontWeight: 600,
+                color: slot!.is_indoor ? "var(--r-low)" : "#16a34a",
+                background: slot!.is_indoor ? "rgba(37,99,235,0.10)" : "rgba(22,163,74,0.10)",
+                borderRadius: 2,
+                letterSpacing: "0.02em",
+              }}
+            >
+              {slot!.is_indoor ? "실내" : "실외"}
+            </span>
+          )}
+        </div>
+
+        {filled ? (
+          <>
+            <div
+              style={{
+                fontFamily: "var(--sans)",
+                fontSize: 14,
+                color: "var(--ink)",
+                marginBottom: 6,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {slot.address}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                color: "var(--ink-mute)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              평일 {String(slot.start_hour).padStart(2, "0")}:00 –{" "}
+              {String(slot.end_hour).padStart(2, "0")}:00
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 13,
+              color: "var(--ink-mute)",
+              marginTop: 2,
+            }}
+          >
+            클릭해서 위치와 평일 시간대를 입력하세요
+          </div>
         )}
       </button>
-    </div>
+
+      {filled && (
+        <button
+          onClick={onClear}
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            padding: "4px 10px",
+            fontFamily: "var(--mono)",
+            fontSize: 10,
+            letterSpacing: "0.1em",
+            background: "transparent",
+            color: "var(--ink-mute)",
+            border: "1px solid var(--rule)",
+            borderRadius: 2,
+            cursor: "pointer",
+            textTransform: "uppercase",
+          }}
+        >
+          지우기
+        </button>
+      )}
+    </article>
   );
 }
 
+function DialLegend({ slots }: { slots: (LocationSlot | null)[] }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        fontFamily: "var(--mono)",
+        fontSize: 10.5,
+        color: "var(--ink-mute)",
+        letterSpacing: "0.04em",
+        alignSelf: "stretch",
+        marginTop: 4,
+      }}
+    >
+      {slots.map((s, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            style={{
+              width: 12,
+              height: 12,
+              background: s ? (SLOT_COLORS[i] as string) : "var(--paper-warm)",
+              border: "1px solid var(--rule)",
+              opacity: s ? 0.92 : 1,
+            }}
+          />
+          <span style={{ color: s ? "var(--ink)" : "var(--ink-mute)" }}>
+            공간 {i + 1}
+          </span>
+          <span style={{ marginLeft: "auto", fontSize: 10 }}>
+            {s
+              ? `${String(s.start_hour).padStart(2, "0")} – ${String(s.end_hour).padStart(2, "0")}`
+              : "미입력"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

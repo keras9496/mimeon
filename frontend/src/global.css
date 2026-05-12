@@ -1,0 +1,51 @@
+/* 글로벌 토큰 + 폰트 — 홈 화면과 보고서가 같은 톤을 공유 */
+
+:root {
+  --ink: #1a1814;
+  --ink-soft: #4a463e;
+  --ink-mute: #7a7468;
+  --paper: #f6f2eb;
+  --paper-warm: #efe9de;
+  --paper-deeper: #e6dfcc;
+  --rule: #d8d0bf;
+  --rule-soft: #e8e1d2;
+
+  --r-low: #2563eb;
+  --r-mid: #0ea5e9;
+  --r-high: #f97316;
+  --r-extreme: #dc2626;
+
+  --accent: #6e2f2f;
+
+  /* 슬롯(1·2·3) 구분 색 — 위험도 색과 헷갈리지 않도록 별도 톤 */
+  --slot-1: #6e2f2f;
+  --slot-2: #4a7c59;
+  --slot-3: #c98a5a;
+
+  --serif-display: "Fraunces", "Noto Serif KR", serif;
+  --serif-kr: "Noto Serif KR", "Fraunces", serif;
+  --sans: "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15.5px;
+  line-height: 1.7;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
