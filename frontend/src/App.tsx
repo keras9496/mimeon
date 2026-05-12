@@ -108,9 +108,9 @@ export default function App() {
             fontFamily: "var(--serif-kr)",
             fontWeight: 900,
             fontSize: "clamp(85px, 16vw, 189px)",
-            lineHeight: 0.9,
+            lineHeight: 1.0,
             letterSpacing: "-0.06em",
-            margin: 0,
+            margin: "0 0 56px",
             color: "var(--ink)",
           }}
         >
@@ -138,7 +138,7 @@ export default function App() {
             fontSize: "clamp(22px, 3vw, 30px)",
             lineHeight: 1.35,
             color: "var(--ink-soft)",
-            margin: "40px 0 18px",
+            margin: "0 0 18px",
             maxWidth: 620,
             letterSpacing: "-0.02em",
           }}
