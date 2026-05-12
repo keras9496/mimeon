@@ -138,7 +138,7 @@ export default function App() {
             fontSize: "clamp(22px, 3vw, 30px)",
             lineHeight: 1.35,
             color: "var(--ink-soft)",
-            margin: "8px 0 18px",
+            margin: "40px 0 18px",
             maxWidth: 620,
             letterSpacing: "-0.02em",
           }}
