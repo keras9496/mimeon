@@ -76,7 +76,7 @@ export function ReportView({ report, onBack }: Props) {
   const validLocations = report.locations.filter((l) => l.matched_hours > 0);
   const worstName = report.summary.worst_location_name;
   const worstLoc = worstName ? report.locations.find((l) => l.name === worstName) ?? null : null;
-  const worstDisplay = worstLoc?.address || worstLoc?.name || worstName || "";
+  const worstDisplay = worstLoc?.name || worstLoc?.address || worstName || "";
   const worstRisk = worstLoc ? computeCumulativeBrainRisk(worstLoc) : null;
 
   return (

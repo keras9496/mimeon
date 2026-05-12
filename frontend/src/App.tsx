@@ -30,7 +30,7 @@ export default function App() {
 
   async function runAnalysis() {
     const filled = slots
-      .map((s, i) => (s ? { ...s, name: SLOT_NAMES[i] } : null))
+      .map((s) => (s ? { ...s } : null))
       .filter((s): s is LocationSlot => s !== null);
     if (filled.length === 0) {
       setErr("최소 하나의 생활공간을 입력해주세요.");
@@ -107,7 +107,7 @@ export default function App() {
           style={{
             fontFamily: "var(--serif-kr)",
             fontWeight: 900,
-            fontSize: "clamp(96px, 18vw, 200px)",
+            fontSize: "clamp(88px, 17vw, 192px)",
             lineHeight: 0.9,
             letterSpacing: "-0.06em",
             margin: 0,
@@ -376,15 +376,31 @@ function SlotCard({
               style={{
                 fontFamily: "var(--sans)",
                 fontSize: 14,
+                fontWeight: 600,
                 color: "var(--ink)",
-                marginBottom: 6,
+                marginBottom: 2,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
             >
-              {slot.address}
+              {slot.name}
             </div>
+            {slot.address && slot.address !== slot.name && (
+              <div
+                style={{
+                  fontFamily: "var(--sans)",
+                  fontSize: 12,
+                  color: "var(--ink-mute)",
+                  marginBottom: 6,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {slot.address}
+              </div>
+            )}
             <div
               style={{
                 fontFamily: "var(--mono)",

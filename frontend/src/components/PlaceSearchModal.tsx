@@ -121,8 +121,8 @@ export function PlaceSearchModal({
       return;
     }
     onSave({
-      name: slotName,
-      address: picked.placeName || picked.addressName,
+      name: picked.placeName || picked.addressName,
+      address: picked.roadAddressName || picked.addressName || picked.placeName,
       lat: picked.lat,
       lon: picked.lon,
       is_indoor: isIndoor,
@@ -366,6 +366,7 @@ export function PlaceSearchModal({
                   value={endHour}
                   onChange={setEndHour}
                   disabledSet={occupiedHours}
+                  isEnd
                 />
                 <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-mute)" }}>
                   까지
@@ -381,7 +382,8 @@ export function PlaceSearchModal({
                   lineHeight: 1.7,
                 }}
               >
-                다른 공간이 차지한 시간(회색)은 선택할 수 없습니다.
+                시작 시각은 다른 공간이 차지한 시간(회색)을 피해주세요. 종료 시각은 그 시각 직전까지의 범위이므로,
+                다른 공간의 시작 시각과 같게 두면 빈틈 없이 이어집니다.
                 <br />
                 자정 넘김 (예: 19→07) 도 가능합니다.
               </div>
@@ -452,10 +454,13 @@ function HourSelect({
   value,
   onChange,
   disabledSet,
+  isEnd = false,
 }: {
   value: number;
   onChange: (n: number) => void;
   disabledSet: Set<number>;
+  /** 종료 시각: 그 시각은 범위에 포함되지 않으므로, 점유된 시각이라도 경계로 선택 가능 */
+  isEnd?: boolean;
 }) {
   return (
     <select
@@ -473,10 +478,13 @@ function HourSelect({
       }}
     >
       {Array.from({ length: 24 }, (_, i) => {
-        const disabled = disabledSet.has(i);
+        const occupied = disabledSet.has(i);
+        // 종료 시각은 경계 선택을 허용 — 점유된 시각이라도 disabled 처리하지 않는다.
+        const disabled = !isEnd && occupied;
+        const tag = disabled ? " (사용 중)" : occupied && isEnd ? " (경계)" : "";
         return (
           <option key={i} value={i} disabled={disabled}>
-            {`${i.toString().padStart(2, "0")}:00${disabled ? " (사용 중)" : ""}`}
+            {`${i.toString().padStart(2, "0")}:00${tag}`}
           </option>
         );
       })}
