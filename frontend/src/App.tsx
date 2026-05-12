@@ -107,7 +107,7 @@ export default function App() {
           style={{
             fontFamily: "var(--serif-kr)",
             fontWeight: 900,
-            fontSize: "clamp(88px, 17vw, 192px)",
+            fontSize: "clamp(85px, 16vw, 189px)",
             lineHeight: 0.9,
             letterSpacing: "-0.06em",
             margin: 0,
