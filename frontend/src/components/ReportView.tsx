@@ -77,7 +77,10 @@ export function ReportView({ report, onBack }: Props) {
   const worstName = report.summary.worst_location_name;
   const worstLoc = worstName ? report.locations.find((l) => l.name === worstName) ?? null : null;
   const worstDisplay = worstLoc?.name || worstLoc?.address || worstName || "";
-  const worstRisk = worstLoc ? computeCumulativeBrainRisk(worstLoc) : null;
+  const overallDementia = report.summary.overall_dementia_pct_increase;
+  const overallHr = report.summary.overall_dementia_hr_20y;
+  const pm25VsNational = report.summary.overall_pm25_vs_national_pct;
+  const no2VsNational = report.summary.overall_no2_vs_national_pct;
 
   return (
     <div className="mimeon-report-root">
@@ -128,13 +131,16 @@ export function ReportView({ report, onBack }: Props) {
               </div>
             </div>
             <div className="mr-verdict-summary">
-              {worstLoc && worstRisk ? (
+              {overallDementia != null ? (
                 <>
-                  가장 위험한 공간은 <strong>{worstDisplay}</strong>. 이곳의 PM2.5·NO₂ 노출 수준은
-                  치매 +{worstRisk.dementia.toFixed(1)}%, 뇌졸중 +{worstRisk.stroke.toFixed(1)}%,
-                  파킨슨병 +{worstRisk.parkinson.toFixed(1)}% — 누적 약{" "}
-                  <strong>+{worstRisk.total.toFixed(1)}%</strong>의 뇌건강 위험을 더할 수 있는
-                  수준입니다.
+                  지금 노출 수준이 20년간 이어진다면 치매 위험은{" "}
+                  <strong>{fmtSignedPct(overallDementia)}</strong>
+                  {overallHr != null ? <> (HR {overallHr.toFixed(2)})</> : null} 변동할 것으로 추정됩니다.
+                  {worstLoc ? (
+                    <>
+                      {" "}가장 큰 기여 공간은 <strong>{worstDisplay}</strong>입니다.
+                    </>
+                  ) : null}
                 </>
               ) : worstLoc ? (
                 <>
@@ -231,6 +237,27 @@ export function ReportView({ report, onBack }: Props) {
                         측정소 {loc.station_name} · {loc.station_distance_km}km
                       </span>
                     </div>
+                    {(loc.dementia_pct_increase != null ||
+                      loc.pm25_vs_national_pct != null ||
+                      loc.no2_vs_national_pct != null) && (
+                      <div className="mr-loc-personal">
+                        {loc.dementia_pct_increase != null && (
+                          <span>
+                            <em>치매 위험</em> {fmtSignedPct(loc.dementia_pct_increase)} <i>20년 누적</i>
+                          </span>
+                        )}
+                        {loc.pm25_vs_national_pct != null && (
+                          <span>
+                            <em>PM2.5</em> {fmtSignedPct(loc.pm25_vs_national_pct)} <i>전국 대비</i>
+                          </span>
+                        )}
+                        {loc.no2_vs_national_pct != null && (
+                          <span>
+                            <em>NO₂</em> {fmtSignedPct(loc.no2_vs_national_pct)} <i>전국 대비</i>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="mr-loc-grade">
                     <span className="badge">{loc.risk_grade}</span>
@@ -266,6 +293,44 @@ export function ReportView({ report, onBack }: Props) {
             ))}
           </div>
 
+          {(pm25VsNational != null || no2VsNational != null) && (
+            <div className="mr-nat-compare">
+              <div className="mr-nat-compare-label">전국 연평균과의 비교</div>
+              <div className="mr-nat-compare-grid">
+                {pm25VsNational != null && report.summary.overall_pm25_avg != null && (
+                  <div className="mr-nat-compare-cell">
+                    <div className="pol">PM2.5</div>
+                    <div className="val">
+                      {report.summary.overall_pm25_avg.toFixed(1)}
+                      <small> ㎍/㎥</small>
+                    </div>
+                    <div className={`delta ${pm25VsNational >= 0 ? "up" : "down"}`}>
+                      {fmtSignedPct(pm25VsNational)}
+                      <small>
+                        전국 {report.summary.national_ref_pm25_ugm3.toFixed(0)} ㎍/㎥ 대비
+                      </small>
+                    </div>
+                  </div>
+                )}
+                {no2VsNational != null && report.summary.overall_no2_avg != null && (
+                  <div className="mr-nat-compare-cell">
+                    <div className="pol">NO₂</div>
+                    <div className="val">
+                      {(report.summary.overall_no2_avg * 1000).toFixed(1)}
+                      <small> ppb</small>
+                    </div>
+                    <div className={`delta ${no2VsNational >= 0 ? "up" : "down"}`}>
+                      {fmtSignedPct(no2VsNational)}
+                      <small>
+                        전국 {(report.summary.national_ref_no2_ppm * 1000).toFixed(0)} ppb 대비
+                      </small>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {worstName && (
             <div className="mr-body-prose" style={{ marginTop: 36 }}>
               <p>
@@ -283,6 +348,24 @@ export function ReportView({ report, onBack }: Props) {
                   </>
                 )}
               </p>
+              {(pm25VsNational != null || no2VsNational != null) && (
+                <p>
+                  지금 당신의 평균 노출은 전국 연평균보다{" "}
+                  {pm25VsNational != null && (
+                    <>
+                      PM2.5 <strong>{fmtSignedPct(pm25VsNational)}</strong>
+                      {no2VsNational != null ? ", " : " "}
+                    </>
+                  )}
+                  {no2VsNational != null && (
+                    <>
+                      NO₂ <strong>{fmtSignedPct(no2VsNational)}</strong>
+                    </>
+                  )}{" "}
+                  수준입니다. 다음 섹션에서 이 차이가 20년 누적 치매 위험으로 어떻게 환산되는지
+                  확인하세요.
+                </p>
+              )}
             </div>
           )}
         </section>
@@ -303,27 +386,71 @@ export function ReportView({ report, onBack }: Props) {
             스트레스를 일으켜 알츠하이머병·파킨슨병·뇌졸중의 위험을 <em>유의하게</em> 높인다."
           </div>
 
+          <p className="mr-intro">
+            Khreis 2025 메타분석의 dose-response HR 을 당신의 60일 평균 농도에 적용해, 같은 수준의
+            노출이 <strong>20년간 지속될 경우</strong>의 치매 위험 변동을 계산했습니다. 기준선은
+            전국 연평균 (PM2.5 {report.summary.national_ref_pm25_ugm3.toFixed(0)}㎍/㎥, NO₂{" "}
+            {(report.summary.national_ref_no2_ppm * 1000).toFixed(0)}ppb)입니다.
+          </p>
+
           <div className="mr-impact-grid">
             <div className="mr-impact-cell">
-              <div className="org">치매</div>
+              <div className="org">치매 위험 (HR)</div>
               <div className="stat">
-                +17<sup>%</sup>
+                {overallDementia != null ? (
+                  <>
+                    {fmtSignedNum(overallDementia)}
+                    <sup>%</sup>
+                  </>
+                ) : (
+                  <>—</>
+                )}
               </div>
-              <div className="desc">PM2.5 농도 10㎍/㎥ 증가당 모든 원인 치매 발병 위험 상대 증가</div>
+              <div className="desc">
+                현재 노출 20년 누적 시 변동.{" "}
+                {overallHr != null ? <>HR {overallHr.toFixed(2)} · </> : null}
+                PM2.5·NO₂ 결합 (독립 가정)
+              </div>
             </div>
             <div className="mr-impact-cell">
-              <div className="org">뇌졸중</div>
+              <div className="org">PM2.5 — 전국 연평균 대비</div>
               <div className="stat">
-                +13<sup>%</sup>
+                {pm25VsNational != null ? (
+                  <>
+                    {fmtSignedNum(pm25VsNational)}
+                    <sup>%</sup>
+                  </>
+                ) : (
+                  <>—</>
+                )}
               </div>
-              <div className="desc">동일 단위 증가당 허혈성 뇌졸중 발생 위험 상대 증가</div>
+              <div className="desc">
+                내 공간 평균{" "}
+                {report.summary.overall_pm25_avg != null
+                  ? `${report.summary.overall_pm25_avg.toFixed(1)}㎍/㎥`
+                  : "—"}
+                {" "}vs 전국 {report.summary.national_ref_pm25_ugm3.toFixed(0)}㎍/㎥
+              </div>
             </div>
             <div className="mr-impact-cell">
-              <div className="org">파킨슨병</div>
+              <div className="org">NO₂ — 전국 연평균 대비</div>
               <div className="stat">
-                +11<sup>%</sup>
+                {no2VsNational != null ? (
+                  <>
+                    {fmtSignedNum(no2VsNational)}
+                    <sup>%</sup>
+                  </>
+                ) : (
+                  <>—</>
+                )}
               </div>
-              <div className="desc">NO₂ 노출 사분위 증가당 파킨슨병 발병 위험 상대 증가</div>
+              <div className="desc">
+                내 공간 평균{" "}
+                {report.summary.overall_no2_avg != null
+                  ? `${(report.summary.overall_no2_avg * 1000).toFixed(1)}ppb`
+                  : "—"}
+                {" "}vs 전국 {(report.summary.national_ref_no2_ppm * 1000).toFixed(0)}ppb
+              </div>
             </div>
           </div>
 
@@ -335,8 +462,9 @@ export function ReportView({ report, onBack }: Props) {
                 {report.summary.overall_risk_score.toFixed(1)}%)
               </strong>
               은, 분석 기간의 그만큼에 해당하는 시간 동안 환경부 24시간 "나쁨" 기준을 초과하는 공기에
-              머물렀다는 의미입니다. 장기 누적 시 이 수준의 노출은 인지 기능 저하와 뇌 백질 위축의
-              위험 요인으로 보고됩니다.
+              머물렀다는 의미입니다. 같은 농도 분포가 <strong>20년간 이어진다고 가정</strong>하면
+              치매 위험은 위 카드와 같이 변동합니다 — 이는 평균적인 한국인의 기저 치매 위험 대비
+              상대적 변동이며, 절대 발병률이 아닙니다.
             </p>
             <p>
               뇌는 다른 장기와 달리 한 번 손상되면 회복이 어렵습니다. 반대로, 같은 양의 노출 감소가
@@ -346,9 +474,10 @@ export function ReportView({ report, onBack }: Props) {
 
           <div className="mr-cite">
             Khreis H, et al. Air pollution and dementia risk: an updated systematic review and
-            dose–response meta-analysis.
+            dose–response meta-analysis. <em>The Lancet Planetary Health</em>, 2025.
             <br />
-            <em>The Lancet Planetary Health</em>, 2025. · 환경부 대기환경기준 (24시간 평균).
+            HR: PM2.5 1.08 per 5㎍/㎥ · NO₂ 1.03 per 10㎍/㎥ · 전국 연평균 = 환경부 도시대기
+            측정망 기준.
           </div>
         </section>
 
@@ -470,32 +599,13 @@ function ExposureRows({ loc, index }: { loc: RiskLocationResult; index: number }
   );
 }
 
-// 누적 뇌건강 위험 추정 — 환경부 24h "나쁨" 임계 비율 × 질병별 dose-response 가중치.
-// 가중치 출처: Khreis 2025 메타분석 기반 보고서 03 IMPACT 셀.
-const PM25_THRESHOLD = 35; // ㎍/㎥ (24h 나쁨)
-const NO2_THRESHOLD = 0.06; // ppm (24h 나쁨)
-const W_DEMENTIA = 17;
-const W_STROKE = 13;
-const W_PARKINSON = 11;
+function fmtSignedNum(v: number): string {
+  if (v >= 0) return `+${v.toFixed(1)}`;
+  return `−${Math.abs(v).toFixed(1)}`;
+}
 
-function computeCumulativeBrainRisk(loc: RiskLocationResult): {
-  dementia: number;
-  stroke: number;
-  parkinson: number;
-  total: number;
-} | null {
-  if (loc.pm25_avg == null && loc.no2_avg == null) return null;
-  const pm25 = Math.max(0, loc.pm25_avg ?? 0);
-  const no2 = Math.max(0, loc.no2_avg ?? 0);
-  const dementia = (pm25 / PM25_THRESHOLD) * W_DEMENTIA;
-  const stroke = (pm25 / PM25_THRESHOLD) * W_STROKE;
-  const parkinson = (no2 / NO2_THRESHOLD) * W_PARKINSON;
-  return {
-    dementia,
-    stroke,
-    parkinson,
-    total: dementia + stroke + parkinson,
-  };
+function fmtSignedPct(v: number): string {
+  return `${fmtSignedNum(v)}%`;
 }
 
 function riskColorVar(level: RiskLevel): string {

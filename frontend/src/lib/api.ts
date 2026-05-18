@@ -88,6 +88,10 @@ export type RiskLocationResult = {
   risk_score: number;
   risk_grade: string;
   infiltration_applied: boolean;
+  dementia_hr_20y: number | null;
+  dementia_pct_increase: number | null;
+  pm25_vs_national_pct: number | null;
+  no2_vs_national_pct: number | null;
 };
 
 export type RiskReportResponse = {
@@ -101,6 +105,14 @@ export type RiskReportResponse = {
     overall_risk_grade: string;
     worst_location_name: string | null;
     worst_location_grade: string | null;
+    overall_pm25_avg: number | null;
+    overall_no2_avg: number | null;
+    overall_dementia_hr_20y: number | null;
+    overall_dementia_pct_increase: number | null;
+    overall_pm25_vs_national_pct: number | null;
+    overall_no2_vs_national_pct: number | null;
+    national_ref_pm25_ugm3: number;
+    national_ref_no2_ppm: number;
   };
 };
 

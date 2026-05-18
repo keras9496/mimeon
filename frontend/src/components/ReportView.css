@@ -508,6 +508,39 @@
   font-weight: 600;
 }
 
+/* 위치 카드 — 개인화 HR / 전국비교 sub-row */
+.mr-loc-personal {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule-soft);
+}
+.mr-loc-personal span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.mr-loc-personal em {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.mr-loc-personal i {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ink-mute);
+}
+
 /* ============ 02 EXPOSURE BARS ============ */
 .mr-exp-table {
   margin-top: 24px;
@@ -576,6 +609,85 @@
   text-align: right;
   letter-spacing: -0.02em;
 }
+
+/* 02 — 전국 연평균 비교 블록 */
+.mr-nat-compare {
+  margin-top: 32px;
+  padding: 24px;
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.mr-nat-compare-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 18px;
+}
+.mr-nat-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+}
+.mr-nat-compare-cell {
+  padding: 0 24px;
+  border-right: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: baseline;
+}
+.mr-nat-compare-cell:first-child { padding-left: 0; }
+.mr-nat-compare-cell:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+.mr-nat-compare-cell .pol {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-mute);
+}
+.mr-nat-compare-cell .val {
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 30px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1;
+}
+.mr-nat-compare-cell .val small {
+  font-family: var(--sans);
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+.mr-nat-compare-cell .delta {
+  text-align: right;
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.mr-nat-compare-cell .delta small {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-mute);
+  font-style: normal;
+  font-weight: 400;
+  margin-top: 4px;
+  text-transform: none;
+}
+.mr-nat-compare-cell .delta.up { color: var(--r-extreme); }
+.mr-nat-compare-cell .delta.down { color: var(--r-low); }
 
 /* ============ 03 IMPACT ============ */
 .mr-pull-quote {
@@ -868,6 +980,14 @@
     gap: 10px;
     font-size: 12px;
   }
+  .mr-nat-compare-grid { grid-template-columns: 1fr; }
+  .mr-nat-compare-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 0;
+  }
+  .mr-nat-compare-cell:last-child { border-bottom: none; }
+  .mr-loc-personal { gap: 12px; }
   .mr-foot .row { grid-template-columns: 1fr; }
   .mr-foot .right { text-align: left; }
   .mr-map-frame { height: 340px; }
