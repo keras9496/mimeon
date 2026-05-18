@@ -258,7 +258,6 @@ export default function App() {
         >
           <span>데이터 · 에어코리아 (한국환경공단)</span>
           <span>위험도 모델 · Khreis 2025, Lancet Planetary Health</span>
-          <span>침투계수 · F<sub>inf</sub> 0.90</span>
         </footer>
       </main>
 
@@ -351,23 +350,6 @@ function SlotCard({
           >
             {name}
           </span>
-          {filled && (
-            <span
-              style={{
-                marginLeft: "auto",
-                padding: "3px 10px",
-                fontFamily: "var(--sans)",
-                fontSize: 11,
-                fontWeight: 600,
-                color: slot!.is_indoor ? "var(--r-low)" : "#16a34a",
-                background: slot!.is_indoor ? "rgba(37,99,235,0.10)" : "rgba(22,163,74,0.10)",
-                borderRadius: 2,
-                letterSpacing: "0.02em",
-              }}
-            >
-              {slot!.is_indoor ? "실내" : "실외"}
-            </span>
-          )}
         </div>
 
         {filled ? (

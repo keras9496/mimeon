@@ -168,8 +168,7 @@ export function KakaoResultMap({ locations }: Props) {
             <b>{current.risk_grade}</b>.
           </div>
           <div style={{ marginTop: 8, fontSize: 11, color: "#94a3b8" }}>
-            {current.is_indoor ? "실내 (침투계수 적용)" : "실외"} · 평일{" "}
-            {String(current.start_hour).padStart(2, "0")}–
+            평일 {String(current.start_hour).padStart(2, "0")}–
             {String(current.end_hour).padStart(2, "0")}시 · {current.station_name} 측정소
           </div>
         </div>

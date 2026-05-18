@@ -164,9 +164,8 @@ export function ReportView({ report, onBack }: Props) {
             당신이 평일에 머문 <em>{numKr(report.locations.length)} 곳</em>.
           </h2>
           <p className="mr-intro">
-            입력하신 좌표를 기준으로 가장 가까운 에어코리아 측정소를 매칭했습니다. 실내 공간에는
-            침투계수(F<sub>inf</sub> = 0.90)를 적용해 외기 농도를 보정했고, 체류 시간대 외의 노출은
-            계산에서 제외했습니다.
+            입력하신 좌표를 기준으로 가장 가까운 에어코리아 측정소를 매칭했습니다. 체류 시간대
+            외의 노출은 계산에서 제외했고, 모든 농도는 외기 측정값을 그대로 사용했습니다.
           </p>
 
           <div className="mr-map-wrap">
@@ -229,8 +228,6 @@ export function ReportView({ report, onBack }: Props) {
                         {loc.lat.toFixed(4)}, {loc.lon.toFixed(4)}
                       </span>
                       <span className="dot" />
-                      <span>{loc.is_indoor ? "실내" : "실외"}</span>
-                      <span className="dot" />
                       <span>평일 {fmtHourRange(loc)}</span>
                       <span className="dot" />
                       <span>
@@ -271,83 +268,81 @@ export function ReportView({ report, onBack }: Props) {
           </div>
         </section>
 
-        {/* 02 EXPOSURE BARS */}
+        {/* 02 NATIONAL COMPARE */}
         <section className="mr-section">
           <div className="mr-snum">
             <span className="n">02</span>
-            <span className="label">{report.window.lookback_days}일간의 노출</span>
+            <span className="label">전국 연평균과의 비교</span>
           </div>
           <h2>
-            오염물질별로 보면,
-            <br />
-            패턴이 더 분명해집니다.
+            전국 평균보다<br />
+            <em>얼마나 더</em> 마셨나.
           </h2>
           <p className="mr-intro">
-            각 위치에서 PM2.5는 24시간 평균 35 ㎍/㎥, NO₂는 0.06 ppm을 초과한 시간의 비율을 계산합니다.
-            두 지표는 PM2.5 : NO₂ = 2 : 1의 가중치로 합산해 위치별 종합 점수를 산출합니다.
+            {report.window.lookback_days}일간 당신이 지정한 시간대에 노출된 평균 농도를, 환경부
+            도시대기 측정망의 전국 연평균과 비교했습니다. 같은 한국인이 평균적으로 마시는 공기를
+            기준선으로 둔 셈입니다.
           </p>
 
-          <div className="mr-exp-table">
-            {report.locations.map((loc, i) => (
-              <ExposureRows key={i} loc={loc} index={i} />
-            ))}
-          </div>
-
-          {(pm25VsNational != null || no2VsNational != null) && (
-            <div className="mr-nat-compare">
-              <div className="mr-nat-compare-label">전국 연평균과의 비교</div>
-              <div className="mr-nat-compare-grid">
-                {pm25VsNational != null && report.summary.overall_pm25_avg != null && (
-                  <div className="mr-nat-compare-cell">
-                    <div className="pol">PM2.5</div>
-                    <div className="val">
-                      {report.summary.overall_pm25_avg.toFixed(1)}
-                      <small> ㎍/㎥</small>
+          {(pm25VsNational != null || no2VsNational != null) ? (
+            <div className="mr-nat-hero">
+              {pm25VsNational != null && report.summary.overall_pm25_avg != null && (
+                <div className="mr-nat-hero-cell">
+                  <div className="pol">PM2.5 초미세먼지</div>
+                  <div className={`big-delta ${pm25VsNational >= 0 ? "up" : "down"}`}>
+                    {fmtSignedPct(pm25VsNational)}
+                  </div>
+                  <div className="row">
+                    <div className="me">
+                      <span className="lab">내 노출</span>
+                      <span className="num">
+                        {report.summary.overall_pm25_avg.toFixed(1)}
+                        <small> ㎍/㎥</small>
+                      </span>
                     </div>
-                    <div className={`delta ${pm25VsNational >= 0 ? "up" : "down"}`}>
-                      {fmtSignedPct(pm25VsNational)}
-                      <small>
-                        전국 {report.summary.national_ref_pm25_ugm3.toFixed(0)} ㎍/㎥ 대비
-                      </small>
+                    <div className="vs">vs</div>
+                    <div className="nat">
+                      <span className="lab">전국 연평균</span>
+                      <span className="num">
+                        {report.summary.national_ref_pm25_ugm3.toFixed(0)}
+                        <small> ㎍/㎥</small>
+                      </span>
                     </div>
                   </div>
-                )}
-                {no2VsNational != null && report.summary.overall_no2_avg != null && (
-                  <div className="mr-nat-compare-cell">
-                    <div className="pol">NO₂</div>
-                    <div className="val">
-                      {(report.summary.overall_no2_avg * 1000).toFixed(1)}
-                      <small> ppb</small>
+                </div>
+              )}
+              {no2VsNational != null && report.summary.overall_no2_avg != null && (
+                <div className="mr-nat-hero-cell">
+                  <div className="pol">NO₂ 이산화질소</div>
+                  <div className={`big-delta ${no2VsNational >= 0 ? "up" : "down"}`}>
+                    {fmtSignedPct(no2VsNational)}
+                  </div>
+                  <div className="row">
+                    <div className="me">
+                      <span className="lab">내 노출</span>
+                      <span className="num">
+                        {(report.summary.overall_no2_avg * 1000).toFixed(1)}
+                        <small> ppb</small>
+                      </span>
                     </div>
-                    <div className={`delta ${no2VsNational >= 0 ? "up" : "down"}`}>
-                      {fmtSignedPct(no2VsNational)}
-                      <small>
-                        전국 {(report.summary.national_ref_no2_ppm * 1000).toFixed(0)} ppb 대비
-                      </small>
+                    <div className="vs">vs</div>
+                    <div className="nat">
+                      <span className="lab">전국 연평균</span>
+                      <span className="num">
+                        {(report.summary.national_ref_no2_ppm * 1000).toFixed(0)}
+                        <small> ppb</small>
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
+          ) : (
+            <p className="mr-body-prose">측정값이 부족해 비교를 산출하지 못했습니다.</p>
           )}
 
           {worstName && (
             <div className="mr-body-prose" style={{ marginTop: 36 }}>
-              <p>
-                {report.locations.find((l) => l.name === worstName)?.is_indoor === false ? (
-                  <>
-                    실외 노출인 <strong>{worstName}</strong>가 모든 항목에서 가장 높게 측정되었습니다.
-                    체류 시간은 다른 공간보다 짧더라도 침투계수 보정이 적용되지 않은 직접 노출이라
-                    단위 시간당 노출 강도는 다른 공간보다 큽니다.
-                  </>
-                ) : (
-                  <>
-                    가장 높은 노출이 측정된 곳은 <strong>{worstName}</strong>입니다. 이 공간의 체류
-                    시간이 길수록 종합 위험도에 미치는 영향이 크므로 환기·공기청정·외출 시간 조정
-                    등으로 노출을 낮추는 것이 효과적입니다.
-                  </>
-                )}
-              </p>
               {(pm25VsNational != null || no2VsNational != null) && (
                 <p>
                   지금 당신의 평균 노출은 전국 연평균보다{" "}
@@ -362,8 +357,8 @@ export function ReportView({ report, onBack }: Props) {
                       NO₂ <strong>{fmtSignedPct(no2VsNational)}</strong>
                     </>
                   )}{" "}
-                  수준입니다. 다음 섹션에서 이 차이가 20년 누적 치매 위험으로 어떻게 환산되는지
-                  확인하세요.
+                  수준입니다. 가장 큰 기여 공간은 <strong>{worstName}</strong>이며, 다음 섹션에서
+                  이 차이가 20년 누적 치매 위험으로 어떻게 환산되는지 확인하세요.
                 </p>
               )}
             </div>
@@ -553,52 +548,6 @@ export function ReportView({ report, onBack }: Props) {
   );
 }
 
-function ExposureRows({ loc, index }: { loc: RiskLocationResult; index: number }) {
-  const idx = String(index + 1).padStart(2, "0");
-  const pm25Color = riskColorVar(loc.pm25_risk_level);
-  const no2Color = riskColorVar(loc.no2_risk_level);
-  const pm25Width = Math.max(2, Math.min(100, loc.pm25_ratio_pct));
-  const no2Width = Math.max(2, Math.min(100, loc.no2_ratio_pct));
-
-  return (
-    <>
-      <div className="mr-exp-row">
-        <div className="n">{idx}</div>
-        <div className="lbl">
-          {loc.name}
-          <small>
-            {loc.is_indoor ? "실내" : "실외"} · {String(loc.start_hour).padStart(2, "0")}:00 – {String(loc.end_hour).padStart(2, "0")}:00
-          </small>
-        </div>
-        <div className="pollutant">PM2.5</div>
-        <div className="mr-exp-bar">
-          <div
-            className="mr-exp-bar-fill"
-            style={{ width: `${pm25Width}%`, background: pm25Color }}
-          />
-        </div>
-        <div className="mr-exp-pct" style={{ color: pm25Color }}>
-          {loc.pm25_ratio_pct.toFixed(1)}%
-        </div>
-      </div>
-      <div className="mr-exp-row">
-        <div className="n"></div>
-        <div className="lbl"></div>
-        <div className="pollutant">NO₂</div>
-        <div className="mr-exp-bar">
-          <div
-            className="mr-exp-bar-fill"
-            style={{ width: `${no2Width}%`, background: no2Color }}
-          />
-        </div>
-        <div className="mr-exp-pct" style={{ color: no2Color }}>
-          {loc.no2_ratio_pct.toFixed(1)}%
-        </div>
-      </div>
-    </>
-  );
-}
-
 function fmtSignedNum(v: number): string {
   if (v >= 0) return `+${v.toFixed(1)}`;
   return `−${Math.abs(v).toFixed(1)}`;
@@ -606,13 +555,6 @@ function fmtSignedNum(v: number): string {
 
 function fmtSignedPct(v: number): string {
   return `${fmtSignedNum(v)}%`;
-}
-
-function riskColorVar(level: RiskLevel): string {
-  if (level === 1) return "var(--r-low)";
-  if (level === 2) return "var(--r-mid)";
-  if (level === 3) return "var(--r-high)";
-  return "var(--r-extreme)";
 }
 
 function numKr(n: number): string {

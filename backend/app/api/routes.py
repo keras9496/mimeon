@@ -19,7 +19,6 @@ class RiskLocation(BaseModel):
     address: Optional[str] = None
     lat: float = Field(..., ge=-90, le=90)
     lon: float = Field(..., ge=-180, le=180)
-    is_indoor: bool = True
     start_hour: int = Field(..., ge=0, le=23)
     end_hour: int = Field(..., ge=0, le=23)
 

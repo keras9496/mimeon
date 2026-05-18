@@ -8,7 +8,6 @@ export type LocationSlot = {
   address: string;
   lat: number;
   lon: number;
-  is_indoor: boolean;
   start_hour: number;
   end_hour: number;
 };
@@ -39,7 +38,6 @@ export function PlaceSearchModal({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [picked, setPicked] = useState<PlaceResult | null>(null);
-  const [isIndoor, setIsIndoor] = useState(true);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(18);
   const [loading, setLoading] = useState(false);
@@ -59,7 +57,6 @@ export function PlaceSearchModal({
         lat: initial.lat,
         lon: initial.lon,
       });
-      setIsIndoor(initial.is_indoor);
       setStartHour(initial.start_hour);
       setEndHour(initial.end_hour);
       setResults([]);
@@ -67,7 +64,6 @@ export function PlaceSearchModal({
       setQuery("");
       setResults([]);
       setPicked(null);
-      setIsIndoor(true);
       // 점유되지 않은 첫 한 시간을 default 로
       const defaults = pickDefaultRange(occupiedHours);
       setStartHour(defaults.start);
@@ -125,7 +121,6 @@ export function PlaceSearchModal({
       address: picked.roadAddressName || picked.addressName || picked.placeName,
       lat: picked.lat,
       lon: picked.lon,
-      is_indoor: isIndoor,
       start_hour: startHour,
       end_hour: endHour,
     });
@@ -339,18 +334,6 @@ export function PlaceSearchModal({
               )}
             </FieldSection>
 
-            {/* 실내/실외 */}
-            <FieldSection label="실내 / 실외">
-              <div style={{ display: "flex", gap: 8 }}>
-                <ToggleBtn active={isIndoor} onClick={() => setIsIndoor(true)}>
-                  실내 (집·사무실)
-                </ToggleBtn>
-                <ToggleBtn active={!isIndoor} onClick={() => setIsIndoor(false)}>
-                  실외 (운동장·노점 등)
-                </ToggleBtn>
-              </div>
-            </FieldSection>
-
             {/* 시간 */}
             <FieldSection label="거주 시간 (평일)">
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -489,37 +472,6 @@ function HourSelect({
         );
       })}
     </select>
-  );
-}
-
-function ToggleBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        padding: "12px 14px",
-        fontFamily: "var(--sans)",
-        fontSize: 13.5,
-        fontWeight: active ? 600 : 400,
-        background: active ? "var(--ink)" : "#fff",
-        color: active ? "var(--paper)" : "var(--ink)",
-        border: active ? "1px solid var(--ink)" : "1px solid var(--rule)",
-        borderRadius: 2,
-        cursor: "pointer",
-        transition: "background 0.15s ease",
-      }}
-    >
-      {children}
-    </button>
   );
 }
 

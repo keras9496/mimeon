@@ -63,7 +63,6 @@ export type RiskLocationInput = {
   address?: string;
   lat: number;
   lon: number;
-  is_indoor: boolean;
   start_hour: number;
   end_hour: number;
 };
@@ -73,7 +72,6 @@ export type RiskLocationResult = {
   address: string | null;
   lat: number;
   lon: number;
-  is_indoor: boolean;
   start_hour: number;
   end_hour: number;
   station_name: string;
@@ -87,7 +85,6 @@ export type RiskLocationResult = {
   no2_risk_level: 1 | 2 | 3 | 4;
   risk_score: number;
   risk_grade: string;
-  infiltration_applied: boolean;
   dementia_hr_20y: number | null;
   dementia_pct_increase: number | null;
   pm25_vs_national_pct: number | null;

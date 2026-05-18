@@ -1,11 +1,11 @@
 """주 생활공간(1~3개) 기반 PM2.5/NO2 위험도 레포트.
 
-- 입력: 위치별 좌표 + 평일 체류 시간대(시작/종료 시각, 0~23) + 실내/실외 구분
+- 입력: 위치별 좌표 + 평일 체류 시간대(시작/종료 시각, 0~23)
 - 처리:
   1) 각 위치의 최근접 측정소에서 지난 60일 시간단위 농도(에어코리아 3MONTH) 수집
   2) 어제(전일) 23시까지를 끝으로 60일 윈도우 적용
   3) 평일(월~금)이고 사용자가 지정한 시간대에 해당하는 시각만 필터
-  4) 실내인 경우 침투계수 적용 (PM2.5×0.55, NO2×0.70 — 한국 K-IOP/Choi&Kang 평균)
+  4) 모든 노출은 외기 농도 그대로 사용 (실내/실외 구분·침투계수 미적용)
   5) PM2.5 ≥ 35 ㎍/㎥ (24h 나쁨 임계), NO2 ≥ 0.06 ppm (24h 나쁨 임계) 초과 시간 카운트
 - 출력: 위치별 노출 통계 + 통합 위험도 등급 (횟수는 _접두로 내부 보관, 등급/색상으로만 노출)
 
@@ -31,12 +31,6 @@ from app.services.stations import get_station_index
 
 PM25_DANGER_UGM3 = 35.0
 NO2_DANGER_PPM = 0.06
-
-# 실내 침투계수: 외기 농도의 90% 가 실내에 그대로 침투한다고 가정 (10% 감쇠).
-# 학술 권장 default(0.55/0.70)는 한국 평균이지만, 실제 사용자 환경(누기 큰 노후 아파트,
-# 빈번한 자연환기, 가스레인지·조리 발생원 등)에서는 노출이 외기에 가깝습니다.
-# 실측 알고리즘 근거 대비 보수적(=위험을 과소평가하지 않는) 방향으로 보정합니다.
-F_INF_INDOOR = {"pm25": 0.90, "no2": 0.90}
 
 # 위험도 가중치: PM2.5는 NO2 대비 메타분석 효과크기가 약 2배 강함
 W_PM25 = 1.0
@@ -140,7 +134,6 @@ async def analyze_risk_report(locations: list[dict]) -> dict:
         "name": str,           # 박스 라벨 ("주 생활 공간 1")
         "lat": float, "lon": float,
         "address": str,        # 사용자 검색어/주소 (디스플레이용)
-        "is_indoor": bool,
         "start_hour": int,     # 0~23
         "end_hour": int,       # 0~23 (미포함)
     }, ...]
@@ -192,12 +185,8 @@ def _analyze_one_location(
     start_dt: datetime,
     end_dt: datetime,
 ) -> dict:
-    is_indoor = bool(loc.get("is_indoor"))
     start_h = int(loc["start_hour"])
     end_h = int(loc["end_hour"])
-
-    f_pm25 = F_INF_INDOOR["pm25"] if is_indoor else 1.0
-    f_no2 = F_INF_INDOOR["no2"] if is_indoor else 1.0
 
     pm25_sum = 0.0
     no2_sum = 0.0
@@ -223,17 +212,15 @@ def _analyze_one_location(
         no2 = r.get("no2")
 
         if pm25 is not None:
-            pm25_eff = pm25 * f_pm25
             pm25_n += 1
-            pm25_sum += pm25_eff
-            if pm25_eff >= PM25_DANGER_UGM3:
+            pm25_sum += pm25
+            if pm25 >= PM25_DANGER_UGM3:
                 pm25_high += 1
 
         if no2 is not None:
-            no2_eff = no2 * f_no2
             no2_n += 1
-            no2_sum += no2_eff
-            if no2_eff >= NO2_DANGER_PPM:
+            no2_sum += no2
+            if no2 >= NO2_DANGER_PPM:
                 no2_high += 1
 
     pm25_avg = pm25_sum / pm25_n if pm25_n else None
@@ -257,7 +244,6 @@ def _analyze_one_location(
         "address": loc.get("address"),
         "lat": loc["lat"],
         "lon": loc["lon"],
-        "is_indoor": is_indoor,
         "start_hour": start_h,
         "end_hour": end_h,
         "station_name": station_name,
@@ -274,7 +260,6 @@ def _analyze_one_location(
         "no2_risk_level": _level_from_ratio(no2_ratio_pct),
         "risk_score": round(weighted_ratio, 1),
         "risk_grade": _grade_from_score(weighted_ratio),
-        "infiltration_applied": is_indoor,
         # HR 기반 20년 누적 치매 위험 (PM2.5·NO2 곱)
         "dementia_hr_20y": round(hr_total, 3) if hr_total is not None else None,
         "dementia_pct_increase": round(dementia_pct_increase, 1) if dementia_pct_increase is not None else None,
