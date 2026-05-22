@@ -148,6 +148,8 @@ export type RankingEntry = {
   no2_avg: number | null;
   risk_score: number;
   risk_grade: string;
+  dementia_pct_increase: number | null;
+  dementia_hr_20y: number | null;
   report_window_end: string;
   created_at: string;
   locations: RankingLocationPublic[];
@@ -189,6 +191,8 @@ export async function submitRanking(payload: {
     no2_avg: report.summary.overall_no2_avg,
     risk_score: report.summary.overall_risk_score,
     risk_grade: report.summary.overall_risk_grade,
+    dementia_pct_increase: report.summary.overall_dementia_pct_increase,
+    dementia_hr_20y: report.summary.overall_dementia_hr_20y,
     report_window_end: report.window.end,
     locations: report.locations
       .filter((l) => l.matched_hours > 0)

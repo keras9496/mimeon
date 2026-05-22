@@ -412,6 +412,78 @@
   color: var(--r-high);
 }
 
+/* ===== 치매 위험 변동 (hero / podium) ===== */
+.lb-dementia {
+  margin-top: 18px;
+  padding: 12px 14px 12px 16px;
+  border-left: 3px solid var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+  text-align: left;
+}
+.lb-dementia.hero {
+  margin-top: 22px;
+}
+.lb-dementia.protective {
+  border-left-color: var(--r-low);
+  background: rgba(37, 99, 235, 0.06);
+}
+.lb-dementia.elevated {
+  border-left-color: var(--r-high);
+  background: rgba(249, 115, 22, 0.06);
+}
+.lb-dementia-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.lb-dementia-value {
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.lb-dementia.protective .lb-dementia-value {
+  color: var(--r-low);
+}
+.lb-dementia.elevated .lb-dementia-value {
+  color: var(--r-high);
+}
+.lb-dementia-value small {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+}
+.lb-dementia-note {
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--ink-mute);
+  line-height: 1.55;
+}
+.lb-dementia.podium {
+  margin-top: 10px;
+  padding: 6px 10px;
+  text-align: right;
+}
+.lb-dementia.podium .lb-dementia-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  margin-bottom: 2px;
+}
+.lb-dementia.podium .lb-dementia-value {
+  font-size: 17px;
+}
+
 /* PM2.5 막대 */
 .lb-bar-wrap {
   position: relative;
@@ -537,7 +609,7 @@
 }
 .lb-table-head {
   display: grid;
-  grid-template-columns: 56px 1.2fr 1fr 2fr;
+  grid-template-columns: 52px 1.2fr 0.9fr 1fr 1.8fr;
   gap: 20px;
   padding: 12px 16px;
   font-family: var(--mono);
@@ -554,7 +626,7 @@
 }
 .lb-row {
   display: grid;
-  grid-template-columns: 56px 1.2fr 1fr 2fr;
+  grid-template-columns: 52px 1.2fr 0.9fr 1fr 1.8fr;
   gap: 20px;
   align-items: baseline;
   padding: 14px 16px;
@@ -593,6 +665,20 @@
   color: var(--ink-mute);
   margin-left: 4px;
   letter-spacing: 0.04em;
+}
+.lb-row-dem {
+  font-family: var(--mono);
+  font-size: 15px;
+  letter-spacing: -0.005em;
+}
+.lb-row-dem.down {
+  color: var(--r-low);
+}
+.lb-row-dem.up {
+  color: var(--r-high);
+}
+.lb-row-dem.na {
+  color: var(--ink-mute);
 }
 .lb-row-loc {
   font-family: var(--sans);
@@ -636,9 +722,10 @@
   }
   .lb-table-head,
   .lb-row {
-    grid-template-columns: 40px 1fr auto;
+    grid-template-columns: 40px 1fr auto auto;
+    gap: 12px;
   }
-  .lb-table-head span:nth-child(4),
+  .lb-table-head span:nth-child(5),
   .lb-row-loc {
     display: none;
   }

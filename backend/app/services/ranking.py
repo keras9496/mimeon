@@ -44,6 +44,8 @@ def init_db() -> None:
                 no2_avg REAL,
                 risk_score REAL NOT NULL,
                 risk_grade TEXT NOT NULL,
+                dementia_pct_increase REAL,
+                dementia_hr_20y REAL,
                 locations_json TEXT NOT NULL,
                 report_window_end TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -53,6 +55,12 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_rank_window ON clean_air_rankings(report_window_end);
             """
         )
+        # 멱등 마이그레이션 — 기존 DB에 새 컬럼이 없으면 추가
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(clean_air_rankings)").fetchall()}
+        if "dementia_pct_increase" not in existing:
+            conn.execute("ALTER TABLE clean_air_rankings ADD COLUMN dementia_pct_increase REAL")
+        if "dementia_hr_20y" not in existing:
+            conn.execute("ALTER TABLE clean_air_rankings ADD COLUMN dementia_hr_20y REAL")
 
 
 def validate_nickname(nickname: str) -> str:
@@ -105,6 +113,8 @@ def submit_ranking(
     risk_grade: str,
     locations: list[dict],
     report_window_end: str,
+    dementia_pct_increase: Optional[float] = None,
+    dementia_hr_20y: Optional[float] = None,
 ) -> dict:
     nick = validate_nickname(nickname)
     if pm25_avg is None or pm25_avg < 0:
@@ -121,13 +131,16 @@ def submit_ranking(
             """
             INSERT INTO clean_air_rankings
               (nickname, pm25_avg, no2_avg, risk_score, risk_grade,
+               dementia_pct_increase, dementia_hr_20y,
                locations_json, report_window_end, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(nickname) DO UPDATE SET
               pm25_avg=excluded.pm25_avg,
               no2_avg=excluded.no2_avg,
               risk_score=excluded.risk_score,
               risk_grade=excluded.risk_grade,
+              dementia_pct_increase=excluded.dementia_pct_increase,
+              dementia_hr_20y=excluded.dementia_hr_20y,
               locations_json=excluded.locations_json,
               report_window_end=excluded.report_window_end,
               created_at=excluded.created_at
@@ -138,6 +151,8 @@ def submit_ranking(
                 _opt_float(no2_avg),
                 float(risk_score),
                 str(risk_grade),
+                _opt_float(dementia_pct_increase),
+                _opt_float(dementia_hr_20y),
                 payload,
                 report_window_end,
                 now_iso,
@@ -150,6 +165,7 @@ def submit_ranking(
 
 
 def _row_to_entry(row: sqlite3.Row, rank: int) -> dict:
+    keys = row.keys() if hasattr(row, "keys") else []
     return {
         "rank": rank,
         "nickname": row["nickname"],
@@ -157,6 +173,8 @@ def _row_to_entry(row: sqlite3.Row, rank: int) -> dict:
         "no2_avg": row["no2_avg"],
         "risk_score": row["risk_score"],
         "risk_grade": row["risk_grade"],
+        "dementia_pct_increase": row["dementia_pct_increase"] if "dementia_pct_increase" in keys else None,
+        "dementia_hr_20y": row["dementia_hr_20y"] if "dementia_hr_20y" in keys else None,
         "report_window_end": row["report_window_end"],
         "created_at": row["created_at"],
         "locations": json.loads(row["locations_json"]) if row["locations_json"] else [],
@@ -170,6 +188,7 @@ def leaderboard(limit: int = 50) -> dict:
         rows = conn.execute(
             """
             SELECT nickname, pm25_avg, no2_avg, risk_score, risk_grade,
+                   dementia_pct_increase, dementia_hr_20y,
                    locations_json, report_window_end, created_at
             FROM clean_air_rankings
             WHERE report_window_end >= ?
@@ -257,6 +276,7 @@ def search_by_nickname(query: str, limit: int = 20) -> dict:
         with _connect() as conn:
             full = conn.execute(
                 """SELECT nickname, pm25_avg, no2_avg, risk_score, risk_grade,
+                          dementia_pct_increase, dementia_hr_20y,
                           locations_json, report_window_end, created_at
                    FROM clean_air_rankings WHERE nickname = ? COLLATE NOCASE""",
                 (r["nickname"],),

@@ -11,6 +11,11 @@ const PODIUM_SLOT_VAR = ["--slot-1", "--slot-2", "--slot-3"];
 const PM25_NATIONAL = 19; // 전국 연평균 기준선 (㎍/㎥)
 const PM25_AXIS_MAX = 30; // 막대 차트 상한
 
+function fmtSignedPct(v: number, digits = 1): string {
+  const sign = v >= 0 ? "+" : "−";
+  return `${sign}${Math.abs(v).toFixed(digits)}%`;
+}
+
 function fmtHourRange(start: number, end: number): string {
   const s = String(start).padStart(2, "0");
   const e = String(end).padStart(2, "0");
@@ -94,12 +99,12 @@ export function Leaderboard() {
 
       {/* Title */}
       <h2 className="lb-title">
-        가장 <em>깨끗한 공기</em>를<br />
-        마신 사람들.
+        <em>클린에어</em> 랭킹
       </h2>
       <p className="lb-intro">
-        미먼 사용자 중 PM2.5 평균 농도가 가장 낮은 순위입니다. 닉네임과 머문 공간만
-        공개되며, GPS 좌표는 저장되지 않습니다. 보고서 마지막에서 직접 등록할 수 있어요.
+        평일에 어디서, 어떤 시간에 머무느냐로 우리가 마시는 공기는 달라집니다.
+        지난 60일 동안 그 선택이 미세먼지로부터 가장 안전했던 미먼 사용자들의 기록입니다.
+        지역과 머문 시간대, 그리고 그 결과가 뇌건강에 어떤 변화를 만들었는지가 함께 표시됩니다.
       </p>
       <p className="lb-privacy-note">
         ※ 닉네임은 <strong>가명·필명</strong>으로 등록해주세요. 실명·이메일·전화번호 등
@@ -181,7 +186,8 @@ export function Leaderboard() {
               <div className="lb-table-head">
                 <span>순위</span>
                 <span>닉네임</span>
-                <span>PM2.5 평균</span>
+                <span>PM2.5</span>
+                <span>20년 치매 위험</span>
                 <span>대표 공간</span>
               </div>
               <ol className="lb-table">
@@ -230,11 +236,15 @@ function HeroCard({ entry }: { entry: RankingEntry }) {
             {entry.pm25_avg.toFixed(1)}
             <small>㎍/㎥</small>
           </div>
-          <div className="lb-stat-label">PM2.5 평균</div>
+          <div className="lb-stat-label">PM2.5 평균 · 60일</div>
           <div className={`lb-stat-delta ${vsNat < 0 ? "down" : "up"}`}>
-            전국 대비 {vsNat >= 0 ? "+" : "−"}
-            {Math.abs(vsNat).toFixed(0)}%
+            전국 연평균 대비 {fmtSignedPct(vsNat, 0)}
           </div>
+          <DementiaStat
+            pct={entry.dementia_pct_increase}
+            hr={entry.dementia_hr_20y}
+            variant="hero"
+          />
         </div>
       </div>
 
@@ -290,6 +300,11 @@ function PodiumCard({ entry }: { entry: RankingEntry }) {
       <div className="lb-podium-stat">
         <span className="num">{entry.pm25_avg.toFixed(1)}</span>
         <small>㎍/㎥</small>
+        <DementiaStat
+          pct={entry.dementia_pct_increase}
+          hr={entry.dementia_hr_20y}
+          variant="podium"
+        />
       </div>
     </article>
   );
@@ -297,6 +312,7 @@ function PodiumCard({ entry }: { entry: RankingEntry }) {
 
 function Row({ entry }: { entry: RankingEntry }) {
   const firstLoc = entry.locations[0];
+  const dem = entry.dementia_pct_increase;
   return (
     <li className="lb-row">
       <span className="lb-row-rank">{String(entry.rank).padStart(2, "0")}</span>
@@ -304,6 +320,9 @@ function Row({ entry }: { entry: RankingEntry }) {
       <span className="lb-row-pm">
         {entry.pm25_avg.toFixed(1)}
         <small>㎍/㎥</small>
+      </span>
+      <span className={`lb-row-dem ${dem != null && dem < 0 ? "down" : dem != null ? "up" : "na"}`}>
+        {dem != null ? fmtSignedPct(dem) : "—"}
       </span>
       <span className="lb-row-loc">
         {firstLoc ? (
@@ -320,6 +339,40 @@ function Row({ entry }: { entry: RankingEntry }) {
         )}
       </span>
     </li>
+  );
+}
+
+function DementiaStat({
+  pct,
+  hr,
+  variant,
+}: {
+  pct: number | null;
+  hr: number | null;
+  variant: "hero" | "podium";
+}) {
+  if (pct == null) return null;
+  const isProtective = pct < 0;
+  const cls = `lb-dementia ${variant} ${isProtective ? "protective" : "elevated"}`;
+  return (
+    <div className={cls}>
+      <div className="lb-dementia-label">
+        {variant === "hero" ? "20년 누적 치매 위험" : "20년 치매 위험"}
+      </div>
+      <div className="lb-dementia-value">
+        {fmtSignedPct(pct)}
+        {hr != null && variant === "hero" && (
+          <small> · HR {hr.toFixed(2)}</small>
+        )}
+      </div>
+      {variant === "hero" && (
+        <div className="lb-dementia-note">
+          {isProtective
+            ? "평균보다 적게 마셔 위험이 낮아졌습니다"
+            : "평균 대비 위험이 상승한 상태"}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -49,6 +49,8 @@ class RankingSubmitRequest(BaseModel):
     no2_avg: Optional[float] = Field(None, ge=0)
     risk_score: float = Field(..., ge=0)
     risk_grade: str = Field(..., min_length=1, max_length=20)
+    dementia_pct_increase: Optional[float] = None
+    dementia_hr_20y: Optional[float] = None
     report_window_end: str = Field(..., min_length=8, max_length=24)
     locations: list[RankingLocationPayload]
 
@@ -150,6 +152,8 @@ def ranking_submit(req: RankingSubmitRequest) -> dict:
             no2_avg=req.no2_avg,
             risk_score=req.risk_score,
             risk_grade=req.risk_grade,
+            dementia_pct_increase=req.dementia_pct_increase,
+            dementia_hr_20y=req.dementia_hr_20y,
             locations=[l.model_dump() for l in req.locations],
             report_window_end=req.report_window_end,
         )
