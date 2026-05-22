@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.core.config import CORS_ORIGINS
+from app.services.ranking import init_db as init_ranking_db
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
@@ -21,6 +22,11 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    init_ranking_db()
 
 # 동일 도메인에서 프론트 서빙 — StaticFiles 마운트는 API 라우트보다 뒤에 와야 /api/* 가 우선
 if FRONTEND_DIST.exists():

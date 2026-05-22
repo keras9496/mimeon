@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { PlaceSearchModal, type LocationSlot } from "./components/PlaceSearchModal";
 import { ReportView } from "./components/ReportView";
 import { HourDial, type DialSlot } from "./components/HourDial";
+import { Leaderboard } from "./components/Leaderboard";
 import { hoursSet, SLOT_COLORS } from "./lib/hours";
 import { analyzeRiskReport, type RiskReportResponse } from "./lib/api";
 
@@ -239,6 +240,9 @@ export default function App() {
             )}
           </div>
         </section>
+
+        {/* 클린에어 리더보드 */}
+        <Leaderboard />
 
         {/* 푸터 */}
         <footer

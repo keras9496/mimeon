@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { RiskReportResponse, RiskLocationResult } from "../lib/api";
 import { gradeToLevel, locationLevel, type RiskLevel } from "../lib/riskColor";
 import { KakaoResultMap } from "./KakaoResultMap";
+import { RankingSubmitCard } from "./RankingSubmitCard";
 import "./ReportView.css";
 
 type Props = {
@@ -519,14 +520,18 @@ export function ReportView({ report, onBack }: Props) {
           </p>
         </section>
 
+        {/* 05 RANKING SUBMIT */}
+        <RankingSubmitCard report={report} />
+
         {/* FOOTER */}
         <footer className="mr-foot">
           <div className="row">
             <div className="left">
               <p>
-                <strong>프라이버시 약속.</strong> 입력하신 위치·시간 정보는 요청 처리 중에만 메모리에
-                존재하며 데이터베이스나 로그에 저장되지 않습니다. 본 보고서는 생성 시점의 분석 결과를
-                단발성으로 기록한 사본입니다.
+                <strong>프라이버시 약속.</strong> 입력하신 GPS 좌표는 요청 처리 중에만 메모리에
+                존재하며 어떤 경우에도 저장되지 않습니다. 본 보고서는 생성 시점의 분석 결과를
+                단발성으로 기록한 사본이며, 클린에어 순위에 직접 등록하지 않는 한 닉네임·위치
+                정보도 서버에 남지 않습니다.
               </p>
               <p>
                 본 결과의 해석에 대해 의문이 있으시면 신경과·정신건강의학과 전문의와 상의하시기

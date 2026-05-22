@@ -47,6 +47,12 @@ data/stations/*.json
 # 측정소 정본 JSON 은 런타임에 필요하므로 포함 (fetch_stations.py 로 재생성 가능)
 !data/stations/api_stations.json
 
+# 랭킹 SQLite — 로컬 개발용 (운영은 Render persistent disk)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
 # Logs
 *.log
 logs/

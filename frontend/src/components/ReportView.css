@@ -915,6 +915,214 @@
   .mr-map-frame { height: 340px; }
 }
 
+/* ============ 05 클린에어 순위 등록 ============ */
+.rank-submit-stat {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: 28px 0 32px;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+.rank-submit-stat .cell {
+  padding: 18px 22px;
+  border-right: 1px solid var(--rule-soft);
+}
+.rank-submit-stat .cell:last-child { border-right: none; }
+.rank-submit-stat .cell .lab {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+}
+.rank-submit-stat .cell .val {
+  font-family: var(--mono);
+  font-size: 28px;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.rank-submit-stat .cell .val small {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-left: 4px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.rank-submit-form {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  padding: 26px 28px 24px;
+}
+.rank-field {
+  display: block;
+  margin-bottom: 18px;
+}
+.rank-field > span {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+}
+.rank-field input {
+  width: 100%;
+  padding: 10px 0 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--serif-kr);
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  outline: none;
+}
+.rank-field input:focus {
+  border-bottom-color: var(--accent);
+}
+.rank-field input::placeholder {
+  color: var(--ink-mute);
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-size: 18px;
+}
+.rank-field-hint {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(110, 47, 47, 0.05);
+  border-left: 2px solid var(--accent);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.rank-field-hint strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+.rank-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0 18px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.rank-agree input[type="checkbox"] {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.rank-agree strong { color: var(--ink); }
+.rank-err {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--r-extreme);
+  padding: 4px 0 12px;
+}
+.rank-submit-btn {
+  width: 100%;
+  padding: 18px 24px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 2px;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: background 0.15s;
+}
+.rank-submit-btn:hover:not(:disabled) {
+  background: var(--accent);
+}
+.rank-submit-btn:disabled {
+  background: var(--ink-mute);
+  cursor: default;
+}
+.rank-submit-btn .arr {
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-size: 18px;
+  opacity: 0.7;
+}
+
+/* 등록 완료 */
+.rank-submit-done h2 em {
+  color: var(--accent);
+}
+.rank-done-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: 24px 0 24px;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+.rank-done-cell {
+  padding: 22px 24px;
+  border-right: 1px solid var(--rule-soft);
+}
+.rank-done-cell:last-child { border-right: none; }
+.rank-done-cell .lab {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 10px;
+}
+.rank-done-cell .val {
+  font-family: var(--serif-kr);
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.rank-done-cell .val small {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-mute);
+  margin-left: 4px;
+}
+.rank-done-note {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+@media (max-width: 720px) {
+  .rank-submit-stat,
+  .rank-done-grid {
+    grid-template-columns: 1fr;
+  }
+  .rank-submit-stat .cell,
+  .rank-done-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .rank-submit-stat .cell:last-child,
+  .rank-done-cell:last-child {
+    border-bottom: none;
+  }
+}
+
 /* ============ PRINT ============ */
 @media print {
   @page {

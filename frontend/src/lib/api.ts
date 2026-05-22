@@ -127,3 +127,90 @@ export async function analyzeRiskReport(
   }
   return res.json();
 }
+
+// ---------- 클린에어 랭킹 ----------
+
+export type RankingLocationPublic = {
+  name: string;
+  address: string | null;
+  start_hour: number;
+  end_hour: number;
+  station_name: string;
+  pm25_avg: number | null;
+  no2_avg: number | null;
+  risk_grade: string;
+};
+
+export type RankingEntry = {
+  rank: number;
+  nickname: string;
+  pm25_avg: number;
+  no2_avg: number | null;
+  risk_score: number;
+  risk_grade: string;
+  report_window_end: string;
+  created_at: string;
+  locations: RankingLocationPublic[];
+};
+
+export type LeaderboardResponse = {
+  entries: RankingEntry[];
+  total: number;
+  window_days: number;
+  generated_at: string;
+};
+
+export type RankingSubmitResponse = {
+  nickname: string;
+  rank: number;
+  total: number;
+};
+
+export async function fetchLeaderboard(limit = 50): Promise<LeaderboardResponse> {
+  const res = await fetch(`${BASE}/api/ranking/leaderboard?limit=${limit}`);
+  if (!res.ok) throw new Error(`leaderboard failed ${res.status}`);
+  return res.json();
+}
+
+export async function searchRanking(q: string): Promise<{ entries: RankingEntry[]; total: number }> {
+  const res = await fetch(`${BASE}/api/ranking/search?q=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error(`search failed ${res.status}`);
+  return res.json();
+}
+
+export async function submitRanking(payload: {
+  nickname: string;
+  report: RiskReportResponse;
+}): Promise<RankingSubmitResponse> {
+  const { nickname, report } = payload;
+  const body = {
+    nickname,
+    pm25_avg: report.summary.overall_pm25_avg ?? 0,
+    no2_avg: report.summary.overall_no2_avg,
+    risk_score: report.summary.overall_risk_score,
+    risk_grade: report.summary.overall_risk_grade,
+    report_window_end: report.window.end,
+    locations: report.locations
+      .filter((l) => l.matched_hours > 0)
+      .map((l) => ({
+        name: l.name,
+        address: l.address,
+        start_hour: l.start_hour,
+        end_hour: l.end_hour,
+        station_name: l.station_name,
+        pm25_avg: l.pm25_avg,
+        no2_avg: l.no2_avg,
+        risk_grade: l.risk_grade,
+      })),
+  };
+  const res = await fetch(`${BASE}/api/ranking/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`submit failed ${res.status}: ${detail}`);
+  }
+  return res.json();
+}

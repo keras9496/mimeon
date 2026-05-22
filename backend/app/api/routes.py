@@ -6,6 +6,11 @@ from pydantic import BaseModel, Field
 from app.models.schemas import GpsPoint
 from app.services.airkorea import AirKoreaError, parse_row, station_realtime
 from app.services.exposure import analyze_exposure
+from app.services.ranking import (
+    leaderboard as ranking_leaderboard,
+    search_by_nickname as ranking_search,
+    submit_ranking,
+)
 from app.services.risk_report import analyze_risk_report
 from app.services.stations import get_station_index
 
@@ -25,6 +30,28 @@ class RiskLocation(BaseModel):
 
 class RiskReportRequest(BaseModel):
     locations: list[RiskLocation]
+
+
+class RankingLocationPayload(BaseModel):
+    name: str
+    address: Optional[str] = None
+    start_hour: int = Field(..., ge=0, le=23)
+    end_hour: int = Field(..., ge=0, le=23)
+    station_name: str
+    pm25_avg: Optional[float] = None
+    no2_avg: Optional[float] = None
+    risk_grade: Optional[str] = None
+
+
+class RankingSubmitRequest(BaseModel):
+    nickname: str = Field(..., min_length=2, max_length=16)
+    pm25_avg: float = Field(..., ge=0)
+    no2_avg: Optional[float] = Field(None, ge=0)
+    risk_score: float = Field(..., ge=0)
+    risk_grade: str = Field(..., min_length=1, max_length=20)
+    report_window_end: str = Field(..., min_length=8, max_length=24)
+    locations: list[RankingLocationPayload]
+
 
 router = APIRouter()
 
@@ -112,6 +139,36 @@ async def exposure_risk_report(req: RiskReportRequest) -> dict:
         raise HTTPException(status_code=503, detail=str(e))
     except AirKoreaError as e:
         raise HTTPException(status_code=_airkorea_http_status(e.result_code), detail=str(e))
+
+
+@router.post("/ranking/submit")
+def ranking_submit(req: RankingSubmitRequest) -> dict:
+    try:
+        result = submit_ranking(
+            nickname=req.nickname,
+            pm25_avg=req.pm25_avg,
+            no2_avg=req.no2_avg,
+            risk_score=req.risk_score,
+            risk_grade=req.risk_grade,
+            locations=[l.model_dump() for l in req.locations],
+            report_window_end=req.report_window_end,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
+
+
+@router.get("/ranking/leaderboard")
+def ranking_leaderboard_route(limit: int = Query(50, ge=1, le=200)) -> dict:
+    return ranking_leaderboard(limit=limit)
+
+
+@router.get("/ranking/search")
+def ranking_search_route(
+    q: str = Query(..., min_length=1, max_length=32),
+    limit: int = Query(20, ge=1, le=50),
+) -> dict:
+    return ranking_search(query=q, limit=limit)
 
 
 @router.get("/air/by-gps")
