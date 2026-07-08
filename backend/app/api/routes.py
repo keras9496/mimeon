@@ -63,6 +63,31 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@router.get("/diag")
+def diag() -> dict:
+    """영속화 진단 — 랭킹 DB 가 실제로 어느 경로에 쓰이는지, 영구 디스크 위인지 확인."""
+    import os
+
+    from app.services.ranking import DB_PATH
+
+    parent = DB_PATH.parent
+    info = {
+        "mimeon_db_path_env": os.getenv("MIMEON_DB_PATH"),
+        "effective_db_path": str(DB_PATH),
+        "db_file_exists": DB_PATH.exists(),
+        "db_dir_exists": parent.exists(),
+        "db_dir_writable": os.access(parent, os.W_OK) if parent.exists() else False,
+        "on_persistent_disk": "/var/data" in str(DB_PATH),
+    }
+    try:
+        from app.services.ranking import leaderboard
+
+        info["ranking_count"] = leaderboard(limit=1)["total"]
+    except Exception as e:  # noqa: BLE001
+        info["ranking_error"] = str(e)
+    return info
+
+
 @router.get("/stations/count")
 def stations_count() -> dict:
     try:

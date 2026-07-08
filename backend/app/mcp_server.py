@@ -35,7 +35,6 @@ mcp = FastMCP(
         "powered by AirKorea(에어코리아) monitoring stations. Users may give a place name "
         "or address (e.g. 강남역); it is geocoded server-side, so GPS coordinates are optional."
     ),
-    stateless_http=True,
 )
 
 # 모든 tool 은 외부 데이터를 읽기만 하고 상태를 바꾸지 않음.

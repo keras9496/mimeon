@@ -15,7 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
 # MCP Streamable HTTP ASGI 앱. path="/" 로 만들어 "/mcp" 에 마운트 → 최종 엔드포인트 /mcp
-mcp_app = mcp.http_app(path="/")
+# stateless_http=True: PlayMCP 권장(세션 없음). http_app 호출 시 지정이 최신 권장 방식.
+mcp_app = mcp.http_app(path="/", stateless_http=True)
 
 
 @asynccontextmanager
