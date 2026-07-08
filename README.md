@@ -61,6 +61,42 @@ npm run dev
 
 `data_term`: `DAILY`(24h) / `MONTH` / `3MONTH` (최대)
 
+## 3-1. MCP 서버 (PlayMCP 등록용)
+
+동일 서버에 MCP(Model Context Protocol) 엔드포인트가 함께 마운트되어 있습니다.
+카카오 **PlayMCP** 등 remote MCP 클라이언트가 Streamable HTTP 로 접속합니다.
+
+- **엔드포인트**: `https://mimeon.onrender.com/mcp` (뒤 슬래시 `/mcp/` 도 동일하게 동작)
+- **transport**: Streamable HTTP (FastMCP), **Stateless** (no session)
+- **프로토콜**: 2025-03-26 ~ 2025-11-25 지원 (PlayMCP 요구 범위 충족)
+- **인증**: 없음 (공개 tool)
+- 각 tool 은 name/description/inputSchema/annotations 를 완비하며, 결과는 정제된 마크다운 텍스트로 반환
+
+등록 전 [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) 로 점검 권장:
+```bash
+npx @modelcontextprotocol/inspector   # Streamable HTTP 로 위 엔드포인트 입력
+```
+
+노출 tool:
+
+| Tool | 설명 |
+|---|---|
+| `get_air_quality(address\|lat\|lon, data_term)` | 장소명/주소(또는 좌표) → 최근접 측정소 실시간 공기질 |
+| `get_air_quality_by_station(station_name, data_term)` | 측정소명으로 실시간 공기질 |
+| `analyze_dementia_risk(locations)` | 생활공간(최대 3곳) → 20년 누적 치매 위험 리포트 |
+
+채팅 환경 대응: 사용자가 "강남역"처럼 **장소명/주소**를 쓰면 카카오 Local API 로 서버에서
+좌표로 변환한다. 최상위 후보를 자동 선택하되 어떤 곳으로 해석했는지 결과에 명시한다.
+좌표(lat/lon)를 직접 줘도 동작한다. 이를 위해 **`KAKAO_REST_API_KEY`**(프론트 JS 키와
+다른, 카카오 앱의 REST API 키)가 필요하다.
+
+로컬 검증:
+```bash
+cd backend
+uvicorn app.main:app --port 8000
+python scripts/mcp_smoke_test.py   # handshake + tools/list 확인 (포트 조정)
+```
+
 ## 4. 배포 (Render)
 
 ### 4-1. 사전 준비
