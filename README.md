@@ -84,6 +84,11 @@ npx @modelcontextprotocol/inspector   # Streamable HTTP 로 위 엔드포인트 
 | `get_air_quality(address\|lat\|lon, data_term)` | 장소명/주소(또는 좌표) → 최근접 측정소 실시간 공기질 |
 | `get_air_quality_by_station(station_name, data_term)` | 측정소명으로 실시간 공기질 |
 | `analyze_dementia_risk(locations)` | 생활공간(최대 3곳) → 20년 누적 치매 위험 리포트 |
+| `get_clean_air_ranking(limit)` | 클린에어 랭킹 조회 — 공기 깨끗한 지역·참여자 순위 |
+| `submit_to_ranking(nickname, locations)` | 내 결과를 닉네임으로 랭킹에 등록 (분석+등록) |
+
+> ⚠️ 랭킹 tool 은 랭킹 DB 영속화가 전제. Render 디스크/DB 영속화가 안 되면 재시작 때 데이터가
+> 사라지므로, 랭킹 운영 전 `MIMEON_DB_PATH` 디스크 마운트(또는 외부 DB) 설정을 확인해야 한다.
 
 채팅 환경 대응: 사용자가 "강남역"처럼 **장소명/주소**를 쓰면 카카오 Local API 로 서버에서
 좌표로 변환한다. 최상위 후보를 자동 선택하되 어떤 곳으로 해석했는지 결과에 명시한다.

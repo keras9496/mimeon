@@ -20,6 +20,11 @@ from pydantic import BaseModel, Field
 
 from app.services.airkorea import AirKoreaError, parse_row, station_realtime
 from app.services.geocode import GeocodeError, geocode
+from app.services.ranking import (
+    leaderboard as ranking_leaderboard,
+    submit_ranking,
+    validate_nickname,
+)
 from app.services.risk_report import analyze_risk_report as _analyze_risk_report
 from app.services.stations import get_station_index
 
@@ -227,6 +232,41 @@ def _risk_markdown(report: dict, resolve_notes: list[str]) -> str:
     return "\n".join(lines)
 
 
+_RANKING_CTA = (
+    "\n\n> 💡 **미먼 클린에어 랭킹**을 조회하면 가장 공기 깨끗한 지역·참여자를 볼 수 있어요. "
+    "닉네임으로 내 결과도 등록할 수 있습니다."
+)
+
+
+async def _resolve_living_spaces(
+    locations: list[LivingSpace],
+) -> tuple[Optional[list[dict]], list[str], Optional[str]]:
+    """생활공간 목록 → (해석된 좌표 dict 목록, 해석 note, 에러 마크다운). 에러 시 (None, [], err)."""
+    resolved_locs: list[dict] = []
+    resolve_notes: list[str] = []
+    for loc in locations:
+        if loc.start_hour == loc.end_hour:
+            return None, [], (
+                f"**오류**: '{loc.name}'의 체류 시간대가 비어 있습니다 "
+                f"(시작·종료가 {loc.start_hour}시로 같음). 머무는 시간대를 알려주세요."
+            )
+        pos, err = await _resolve_location(loc.address, loc.lat, loc.lon)
+        if err:
+            return None, [], f"'{loc.name}' 위치 확인 실패 — {err}"
+        assert pos is not None
+        resolved_locs.append({
+            "name": loc.name,
+            "address": loc.address,
+            "lat": pos["lat"],
+            "lon": pos["lon"],
+            "start_hour": loc.start_hour,
+            "end_hour": loc.end_hour,
+        })
+        if pos["note"]:
+            resolve_notes.append(pos["note"].lstrip(" ·"))
+    return resolved_locs, resolve_notes, None
+
+
 @mcp.tool(
     annotations={"title": "Analyze 20-year cumulative dementia risk from air pollution", **_READ_ANNOTATIONS},
 )
@@ -249,34 +289,148 @@ async def analyze_dementia_risk(locations: list[LivingSpace]) -> str:
         return "**오류**: locations 가 비어있습니다. 최소 1곳을 입력하세요."
     if len(locations) > 3:
         return "**오류**: 최대 3개의 생활공간까지 입력 가능합니다."
-
-    resolved_locs: list[dict] = []
-    resolve_notes: list[str] = []
-    for loc in locations:
-        if loc.start_hour == loc.end_hour:
-            return (
-                f"**오류**: '{loc.name}'의 체류 시간대가 비어 있습니다 "
-                f"(시작·종료가 {loc.start_hour}시로 같음). 머무는 시간대를 알려주세요."
-            )
-        pos, err = await _resolve_location(loc.address, loc.lat, loc.lon)
-        if err:
-            return f"'{loc.name}' 위치 확인 실패 — {err}"
-        assert pos is not None
-        resolved_locs.append({
-            "name": loc.name,
-            "address": loc.address,
-            "lat": pos["lat"],
-            "lon": pos["lon"],
-            "start_hour": loc.start_hour,
-            "end_hour": loc.end_hour,
-        })
-        if pos["note"]:
-            resolve_notes.append(pos["note"].lstrip(" ·"))
-
+    resolved_locs, resolve_notes, err = await _resolve_living_spaces(locations)
+    if err:
+        return err
+    assert resolved_locs is not None
     try:
         report = await _analyze_risk_report(resolved_locs)
     except FileNotFoundError as e:
         return f"**오류**: 측정소 데이터를 불러올 수 없습니다 ({e})."
     except AirKoreaError as e:
         return f"**오류**: 에어코리아 조회 실패 — {e}"
-    return _risk_markdown(report, resolve_notes)
+    return _risk_markdown(report, resolve_notes) + _RANKING_CTA
+
+
+# ---------- 클린에어 랭킹 ----------
+
+def _ranking_markdown(board: dict) -> str:
+    entries = board.get("entries", [])
+    total = board.get("total", 0)
+    if not entries:
+        return (
+            "### 미먼(Mimeon) 클린에어 랭킹\n\n"
+            "아직 등록된 참여자가 없습니다. 생활공간을 분석하고 닉네임으로 첫 참여자가 되어보세요!"
+        )
+    lines = [
+        "### 미먼(Mimeon) 클린에어 랭킹 — 공기 깨끗한 순",
+        f"최근 60일 기준 · 총 **{total}명** 참여\n",
+    ]
+    for e in entries:
+        regions = ", ".join(
+            dict.fromkeys(  # 중복 측정소 제거, 순서 유지
+                (l.get("station_name") or l.get("name") or "")
+                for l in e.get("locations", [])
+                if (l.get("station_name") or l.get("name"))
+            )
+        )
+        dp = e.get("dementia_pct_increase")
+        dp_txt = f" · 치매위험 {dp:+}%" if dp is not None else ""
+        line = (
+            f"{e['rank']}. **{e['nickname']}** — PM2.5 {_fmt(e.get('pm25_avg'), ' ㎍/㎥')} "
+            f"· {e.get('risk_grade', '—')}{dp_txt}"
+        )
+        if regions:
+            line += f"\n   지역: {regions}"
+        lines.append(line)
+    lines.append("\n_PM2.5 가 낮을수록(공기 깨끗) 상위. 닉네임·지역·평균만 공개, 좌표는 비공개._")
+    return "\n".join(lines)
+
+
+@mcp.tool(
+    annotations={"title": "Get the clean-air ranking (cleanest regions & participants)", **_READ_ANNOTATIONS},
+)
+async def get_clean_air_ranking(limit: int = 10) -> str:
+    """View the 미먼(Mimeon) clean-air ranking — participants ranked by cleanest PM2.5 exposure.
+    Use this to show which regions / AirKorea stations have the cleanest air among users, and
+    where the top-ranked (cleanest-air) participants live or work.
+
+    Args:
+        limit: Number of top entries to return (1-50, default 10).
+
+    Returns a Markdown leaderboard: rank, nickname, PM2.5 average, risk grade, and regions.
+    """
+    lim = max(1, min(int(limit), 50))
+    board = ranking_leaderboard(limit=lim)
+    return _ranking_markdown(board)
+
+
+@mcp.tool(
+    annotations={
+        "title": "Submit your result to the clean-air ranking",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)
+async def submit_to_ranking(nickname: str, locations: list[LivingSpace]) -> str:
+    """Register the user's result on the 미먼(Mimeon) clean-air ranking under a nickname.
+    미먼(Mimeon) computes the PM2.5 / dementia-risk report for the given living spaces (same as
+    analyze_dementia_risk) and submits it. Only the nickname, region/station names, and averages
+    are made public — GPS coordinates are never stored. Re-submitting with the same nickname
+    updates that entry.
+
+    Args:
+        nickname: Public nickname, 2-16 chars (Korean/English/digits and _-. ).
+        locations: 1-3 living spaces (same shape as analyze_dementia_risk).
+
+    Returns the user's rank and total participant count.
+    """
+    if not locations:
+        return "**오류**: locations 가 비어있습니다. 최소 1곳을 입력하세요."
+    if len(locations) > 3:
+        return "**오류**: 최대 3개의 생활공간까지 입력 가능합니다."
+    try:
+        nick = validate_nickname(nickname)
+    except ValueError as e:
+        return f"**오류**: {e}"
+
+    resolved_locs, _notes, err = await _resolve_living_spaces(locations)
+    if err:
+        return err
+    assert resolved_locs is not None
+    try:
+        report = await _analyze_risk_report(resolved_locs)
+    except FileNotFoundError as e:
+        return f"**오류**: 측정소 데이터를 불러올 수 없습니다 ({e})."
+    except AirKoreaError as e:
+        return f"**오류**: 에어코리아 조회 실패 — {e}"
+
+    s = report.get("summary", {})
+    if s.get("overall_pm25_avg") is None:
+        return "**오류**: 지정한 시간대에 유효한 측정 데이터가 없어 랭킹에 등록할 수 없습니다."
+
+    rank_locs = [
+        {
+            "name": l.get("name"),
+            "address": l.get("address"),
+            "start_hour": l.get("start_hour", 0),
+            "end_hour": l.get("end_hour", 0),
+            "station_name": l.get("station_name", ""),
+            "pm25_avg": l.get("pm25_avg"),
+            "no2_avg": l.get("no2_avg"),
+            "risk_grade": l.get("risk_grade"),
+        }
+        for l in report.get("locations", [])
+    ]
+    try:
+        result = submit_ranking(
+            nickname=nick,
+            pm25_avg=s["overall_pm25_avg"],
+            no2_avg=s.get("overall_no2_avg"),
+            risk_score=s.get("overall_risk_score", 0.0),
+            risk_grade=s.get("overall_risk_grade", "데이터 없음"),
+            dementia_pct_increase=s.get("overall_dementia_pct_increase"),
+            dementia_hr_20y=s.get("overall_dementia_hr_20y"),
+            locations=rank_locs,
+            report_window_end=report.get("window", {}).get("end", ""),
+        )
+    except ValueError as e:
+        return f"**오류**: {e}"
+    return (
+        "### 미먼(Mimeon) 클린에어 랭킹 등록 완료 🎉\n"
+        f"**{result['nickname']}** 님 — 전체 **{result['total']}명** 중 **{result['rank']}위** "
+        f"(평균 PM2.5 {_fmt(s['overall_pm25_avg'], ' ㎍/㎥')})\n\n"
+        "_get_clean_air_ranking 로 전체 순위를 확인해보세요._"
+    )
