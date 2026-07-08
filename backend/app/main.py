@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,8 +22,14 @@ mcp_app = mcp.http_app(path="/", stateless_http=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 기존 startup 작업
-    init_ranking_db()
+    # 랭킹 DB 초기화는 비치명적 — 실패해도 서버(공기질·MCP)는 떠야 한다.
+    # (예: MIMEON_DB_PATH 가 쓰기 불가한 경로일 때 startup 크래시 방지)
+    try:
+        init_ranking_db()
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("mimeon").warning(
+            "랭킹 DB 초기화 실패 — 랭킹 기능만 비활성화하고 계속 진행합니다: %s", e
+        )
     # FastMCP 세션 매니저 lifespan 을 반드시 함께 구동 (미구동 시 /mcp 호출이 실패)
     async with mcp_app.lifespan(app):
         yield

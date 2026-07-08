@@ -350,7 +350,10 @@ async def get_clean_air_ranking(limit: int = 10) -> str:
     Returns a Markdown leaderboard: rank, nickname, PM2.5 average, risk grade, and regions.
     """
     lim = max(1, min(int(limit), 50))
-    board = ranking_leaderboard(limit=lim)
+    try:
+        board = ranking_leaderboard(limit=lim)
+    except Exception as e:  # noqa: BLE001
+        return f"**오류**: 랭킹 데이터를 불러올 수 없습니다 ({e})."
     return _ranking_markdown(board)
 
 
@@ -427,6 +430,8 @@ async def submit_to_ranking(nickname: str, locations: list[LivingSpace]) -> str:
         )
     except ValueError as e:
         return f"**오류**: {e}"
+    except Exception as e:  # noqa: BLE001
+        return f"**오류**: 랭킹 등록 실패 — DB 를 사용할 수 없습니다 ({e})."
     return (
         "### 미먼(Mimeon) 클린에어 랭킹 등록 완료 🎉\n"
         f"**{result['nickname']}** 님 — 전체 **{result['total']}명** 중 **{result['rank']}위** "
