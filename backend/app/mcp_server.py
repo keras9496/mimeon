@@ -33,8 +33,23 @@ mcp = FastMCP(
     instructions=(
         "Real-time air quality and long-term dementia-risk analyzer for South Korea, "
         "powered by AirKorea(에어코리아) monitoring stations. Users may give a place name "
-        "or address (e.g. 강남역); it is geocoded server-side, so GPS coordinates are optional."
+        "or address (e.g. 강남역); it is geocoded server-side, so GPS coordinates are optional.\n\n"
+        "IMPORTANT — first turn: When the user's message mentions 미세먼지 / 초미세먼지 / 치매 / "
+        "알츠하이머 (or air quality / dementia / Alzheimer), FIRST call the `get_started` tool and "
+        "show its guidance to the user BEFORE asking for any details or calling other tools. That "
+        "guidance tells the user to share where they mainly spend time and during which hours. "
+        "Only after the user provides a place/time should you call analyze_dementia_risk. "
+        "Keep replies warm and encouraging in Korean."
     ),
+)
+
+# 미세먼지·치매·알츠하이머 키워드에 반응해 대화 초입에 보여줄 안내 문구.
+_INTRO_GUIDANCE = (
+    "🌫️ **미먼(Mimeon)** 이에요!\n\n"
+    "미세먼지·치매·알츠하이머가 궁금하시군요. "
+    "**주로 지내시는 곳과 머무는 시간**을 알려주시면, 미세먼지가 치매 위험에 미치는 영향을 알려드릴 수 있어요.\n\n"
+    "예) \"평일에 왕십리 집에서 저녁 7시~아침 8시, 정부청사에서 오전 9시~오후 6시 지내요\"\n\n"
+    "알고 싶은 위치의 **주변 장소**(가까운 역·건물·가게 이름)로 검색하셔도 좋아요! 🙌"
 )
 
 # 모든 tool 은 외부 데이터를 읽기만 하고 상태를 바꾸지 않음.
@@ -48,6 +63,21 @@ _READ_ANNOTATIONS = {
 _VALID_TERMS = ("DAILY", "MONTH", "3MONTH")
 _MAX_ROWS = 24  # 결과 크기 최소화 — 최신 24시간만
 _GRADE_KO = {1: "좋음", 2: "보통", 3: "나쁨", 4: "매우 나쁨"}
+
+
+@mcp.tool(
+    annotations={"title": "Intro guidance — how to use 미먼(Mimeon)", **_READ_ANNOTATIONS},
+)
+async def get_started() -> str:
+    """Return 미먼(Mimeon)'s onboarding guidance in Korean. Call this FIRST whenever the user
+    brings up 미세먼지 / 초미세먼지 / 치매 / 알츠하이머 (or air quality / dementia / Alzheimer),
+    and show the returned message BEFORE asking for details or calling any other tool. It asks
+    the user to share where they mainly stay and during which hours so their exposure can be
+    analyzed, and notes they can search by a nearby landmark.
+
+    Returns the intro guidance as Markdown.
+    """
+    return _INTRO_GUIDANCE
 
 
 def _g(grade: Optional[float]) -> str:
@@ -197,27 +227,85 @@ class LivingSpace(BaseModel):
     )
 
 
+# 등급별로 (1)번 문장의 서술어를 바꿔 사람이 흥미롭게 읽도록 함.
+_GRADE_PHRASE = {
+    "낮음": "경미해요 😌",
+    "보통": "보통 수준이에요",
+    "높음": "조금 신경 쓰는 게 좋아요 ⚠️",
+    "매우 높음": "적극적인 관리가 필요해요 🚨",
+}
+
+
+def _line1_overall(s: dict) -> Optional[str]:
+    """(1) 종합 위험도 한 줄 — 등급에 맞춘 서술어."""
+    grade = s.get("overall_risk_grade")
+    if not grade or grade == "데이터 없음":
+        return None
+    score = _fmt(s.get("overall_risk_score"))
+    phrase = _GRADE_PHRASE.get(grade, "확인해 보세요")
+    return f"**(1) 종합 위험도: {grade} (점수 {score})** — 미세먼지로 인한 치매 위험은 {phrase}"
+
+
+def _line2_dementia(s: dict) -> Optional[str]:
+    """(2) 20년 누적 치매 위험 % — 방향에 따라 응원/주의 톤을 바꿈."""
+    pct = s.get("overall_dementia_pct_increase")
+    if pct is None:
+        return None
+    head = "앞으로 이렇게 20년을 지낸다면 전국 평균 대비 치매발병 위험이"
+    if pct < 0:
+        return f"**(2)** {head} **{pct:+}%** 가 되어요 — 전국 평균보다 낮아요! 👍"
+    if pct > 0:
+        return f"**(2)** {head} **{pct:+}%** 높아져요 — 조금 주의가 필요해요 ⚠️"
+    return f"**(2)** {head} 전국 평균과 비슷한 수준이에요"
+
+
+def _line3_spatial(locs: list[dict]) -> Optional[str]:
+    """(3) 공간 비교 — PM2.5 평균이 가장 높은/낮은 공간을 대비."""
+    with_pm = [l for l in locs if l.get("pm25_avg") is not None and l.get("name")]
+    if not with_pm:
+        return None
+    if len(with_pm) == 1:
+        name = with_pm[0]["name"]
+        return (
+            f"**(3)** 지금은 **{name}** 한 곳만 분석했어요. "
+            "다른 생활공간도 알려주시면 공간별로 비교해 드릴게요!"
+        )
+    worst = max(with_pm, key=lambda l: l["pm25_avg"])
+    best = min(with_pm, key=lambda l: l["pm25_avg"])
+    return (
+        f"**(3)** 공간적으로는 **{worst['name']}**에서 "
+        f"**{best['name']}**보다 미세먼지에 더 많이 노출되고 있어요!!"
+    )
+
+
 def _risk_markdown(report: dict, resolve_notes: list[str]) -> str:
     s = report.get("summary", {})
-    grade = s.get("overall_risk_grade", "데이터 없음")
+    locs = report.get("locations", [])
+
     lines = [
-        "### 미먼(Mimeon) 20년 누적 치매 위험 리포트",
-        f"**종합 위험도: {grade}** (점수 {_fmt(s.get('overall_risk_score'))})",
+        "### 🧠 미먼(Mimeon) 리포트",
+        "_이 환경에서 앞으로 20년을 지냈을 때, 미세먼지가 내 뇌에 남기는 위험을 분석했어요._\n",
     ]
-    if s.get("overall_dementia_pct_increase") is not None:
+
+    narrative = [ln for ln in (_line1_overall(s), _line2_dementia(s), _line3_spatial(locs)) if ln]
+    if narrative:
+        lines.extend(narrative)
+    else:
+        # 유효 데이터가 없을 때: 등급/점수만이라도 안내
+        grade = s.get("overall_risk_grade", "데이터 없음")
         lines.append(
-            f"- 20년 누적 치매 위험: 전국 평균 대비 **{s['overall_dementia_pct_increase']:+}%**"
+            f"**종합 위험도: {grade}** — 지정한 시간대에 유효한 측정값이 부족해 "
+            "상세 분석이 어려웠어요. 체류 시간대를 넓혀 다시 시도해 보세요."
         )
+
+    # 근거 수치는 접어서 하단에 — 궁금한 사람만 확인
     if s.get("overall_pm25_avg") is not None:
         vs = s.get("overall_pm25_vs_national_pct")
         vs_txt = f" (전국평균 대비 {vs:+}%)" if vs is not None else ""
-        lines.append(f"- 평균 PM2.5 {s['overall_pm25_avg']} ㎍/㎥{vs_txt}")
-    if s.get("worst_location_name"):
-        lines.append(f"- 가장 위험한 공간: **{s['worst_location_name']}** ({s.get('worst_location_grade')})")
+        lines.append(f"\n📊 평균 PM2.5 **{s['overall_pm25_avg']} ㎍/㎥**{vs_txt}")
 
-    locs = report.get("locations", [])
     if locs:
-        lines.append("\n#### 공간별")
+        lines.append("\n#### 공간별 자세히")
         for l in locs:
             dp = l.get("dementia_pct_increase")
             dp_txt = f", 치매위험 {dp:+}%" if dp is not None else ""
